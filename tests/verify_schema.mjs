@@ -12,6 +12,8 @@
  *   ToolSchema（listTools 里每个工具的 schema）
  */
 import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const SDK = 'file:///F:/Program%20Files/BannerlordSage/node_modules/@modelcontextprotocol/sdk/dist/esm'
 const {
@@ -20,7 +22,11 @@ const {
   CallToolResultSchema,
 } = await import(`${SDK}/types.js`)
 
-const WIRE = 'E:\\Document\\mcp-chain\\wire_capture.json'
+// ★ 用**相对自身**定位协议线文件，不写死绝对路径。
+//   原来写死 E:\Document\mcp-chain\... ⇒ 伞仓一搬家就 ENOENT（实测）。
+//   capture_wire.py 就写在本文件旁边（tests/）。
+const HERE = path.dirname(fileURLToPath(import.meta.url))
+const WIRE = process.env.DSH_CHAIN_WIRE || path.join(HERE, 'wire_capture.json')
 const data = JSON.parse(fs.readFileSync(WIRE, 'utf8'))
 
 let fails = []

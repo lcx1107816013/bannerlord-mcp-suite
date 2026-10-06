@@ -23,12 +23,19 @@ import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PY = r"D:\Program Files\Python312\python.exe"
-BUN = (r"C:\Users\LCGX\AppData\Local\Microsoft\WinGet\Packages"
-       r"\Oven-sh.Bun_Microsoft.Winget.Source_8wekyb3d8bbwe\bun-windows-x64\bun.exe")
-GAME = (r"G:\Program Files (x86)\Steam\steamapps\common\Mount & Blade II Bannerlord")
+# ★ 伞仓根 = probe/ 的上一级。第 4 个上游（localization-audit）就在它下面，
+#   所以用**相对定位**而不是写死绝对路径 —— 否则伞仓一搬家（或别人 clone）
+#   这个探针就起不来（实测：旧目录一删，本项立刻失败）。
+ROOT = os.path.dirname(HERE)
+# 环境变量优先，兜底用「跑本脚本的解释器」—— 与 bl_chain.py 同一口径。
+PY = os.environ.get("DSH_CHAIN_PYTHON") or sys.executable
+BUN = os.environ.get("DSH_CHAIN_BUN") or (
+    r"C:\Users\LCGX\AppData\Local\Microsoft\WinGet\Packages"
+    r"\Oven-sh.Bun_Microsoft.Winget.Source_8wekyb3d8bbwe\bun-windows-x64\bun.exe")
+GAME = os.environ.get("BANNERLORD_DIR") or (
+    r"G:\Program Files (x86)\Steam\steamapps\common\Mount & Blade II Bannerlord")
 DIV = 3.80  # 估算回退系数 —— **实测校准值**（真实 tokenizer 测出 bytes/token=3.80）
-TOKENIZER_PATH = r"E:\Document\spark-heretic\model\tokenizer.json"
+TOKENIZER_PATH = os.environ.get("DSH_CHAIN_TOKENIZER") or ""
 
 # ★ 字节口径：**compact JSON**（separators=(",", ":")）
 #   这是真正上线的形态（MCP 传输不插空格），也是 JS JSON.stringify 的默认。
@@ -58,7 +65,13 @@ def count_tokens(obj):
         return len(tok.encode(payload, add_special_tokens=False).ids), True
     return int(round(len(payload.encode("utf-8")) / DIV)), False
 
-BL_MCP = r"C:\Users\LCGX\CodeBuddy\20260923171333\BlBridge\tools\bl_mcp.py"
+# ★ 三个业务上游的位置：环境变量优先，兜底本机常见路径。
+#   （它们**不在本伞仓里** —— 见 docs/why-umbrella-repo.md。）
+BLBRIDGE_DIR = os.environ.get("DSH_CHAIN_BLBRIDGE") or (
+    r"C:\Users\LCGX\CodeBuddy\20260923171333\BlBridge")
+BL_MCP = os.path.join(BLBRIDGE_DIR, "tools", "bl_mcp.py")
+SAGE_DIR = os.environ.get("DSH_CHAIN_SAGE") or r"F:\Program Files\BannerlordSage"
+HELPER_DIR = os.environ.get("DSH_CHAIN_HELPER") or r"F:\Program Files\Bannerlord.Helper"
 
 SERVERS = {
     "blbridge": {
@@ -68,24 +81,25 @@ SERVERS = {
         "toolsetEnv": "BLBRIDGE_TOOLSET",
     },
     "bannerlordsage": {
-        "cmd": [BUN, "run", r"F:\Program Files\BannerlordSage\src\entrypoints\bannerlord-full-stdio.ts"],
-        "cwd": r"F:\Program Files\BannerlordSage",
+        "cmd": [BUN, "run", os.path.join(SAGE_DIR, "src", "entrypoints", "bannerlord-full-stdio.ts")],
+        "cwd": SAGE_DIR,
         "env": {"BANNERSAGE_GAME": "bannerlord", "BANNERSAGE_EULA_ACCEPTED": "true",
                 "BANNERSAGE_BANNERLORD_GAME_DIR": GAME},
         "toolsetEnv": "BANNERSAGE_TOOLSET",
     },
     "bannerlordhelper": {
-        "cmd": [BUN, "run", r"F:\Program Files\Bannerlord.Helper\mcp\server.ts"],
-        "cwd": r"F:\Program Files\Bannerlord.Helper",
+        "cmd": [BUN, "run", os.path.join(HELPER_DIR, "mcp", "server.ts")],
+        "cwd": HELPER_DIR,
         "env": {"NEXUS_API_KEY": ""},
         "toolsetEnv": None,
     },
     # 第 4 个上游（2026-10-06）：本项目自研的汉化审计（只读）。
     # ⚠️ 探针必须**独立量一遍**，不能从 bl_chain 抄数字 ——
     #    否则"交叉校验"就退化成"自己验自己"，失去独立第二意见的意义。
+    # ★ 路径用 ROOT 相对定位：它就住在伞仓里，跟着仓库走。
     "localization-audit": {
-        "cmd": [PY, r"E:\Document\mcp-chain\localization-audit\la_mcp.py"],
-        "cwd": r"E:\Document\mcp-chain\localization-audit",
+        "cmd": [PY, os.path.join(ROOT, "localization-audit", "la_mcp.py")],
+        "cwd": os.path.join(ROOT, "localization-audit"),
         "env": {"PYTHONIOENCODING": "utf-8", "BANNERLORD_DIR": GAME},
         "toolsetEnv": None,
     },
