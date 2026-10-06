@@ -1,0 +1,50 @@
+# ── Python ────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── ★ 测试/探针的**产出物**（可再生产，不入库） ───────────────────────────
+#    判据：每次跑 tests/run_all_tests.py 都会重新生成它们。
+#    ⚠️ 但有两种例外，**必须入库**：
+#       ① `probe/measured_*_raw.json` —— 交叉校验的**独立基准**（是输入，不是产出）
+#       ② `tests/tool_inventory.md`   —— 生成的，但**当文档用**：
+#          它只在「上游工具面变化」时才变 ⇒ 那种 diff 正是你想看到的。
+wire_capture.json
+real_tokens.json
+layering_sim.json
+cdb_survey.json
+criteria_probe.json
+crash_site_probe.json
+
+# ── ★ 本地环境（由 bootstrap.ps1 -WriteEnv 生成，含本机路径） ──────────────
+.env.ps1
+
+# ── 临时文件 ──────────────────────────────────────────────────────────────
+*.tmp
+*.log
+_*.txt
+
+# ── 备份 / 编辑器杂物（绝不入库） ─────────────────────────────────────────
+*.bak
+*.bak_*
+*.orig
+*.old
+
+# ── Node / Bun（本仓库不用，但上游可能需要） ──────────────────────────────
+node_modules/
+bun.lockb
+
+# ── 凭据（★ 绝不入库） ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.key
+*_key.txt
+credentials*
+
+# ── 游戏 / 崩溃转储（体积大且含隐私） ─────────────────────────────────────
+*.dmp
+*.dmp.exception.json

@@ -1,0 +1,369 @@
+{
+ "server": "bannerlordhelper",
+ "toolset": null,
+ "label": "bannerlordhelper",
+ "count": 10,
+ "arrayBytes": 6265,
+ "arrayTokens": 1489,
+ "tokensExact": true,
+ "bytesPerToken": 4.21,
+ "descBytes": 1618,
+ "schemaBytes": 4041,
+ "sumToolBytes": 6254,
+ "capabilities": {
+  "tools": {}
+ },
+ "serverInfo": {
+  "name": "bannerlord-helper",
+  "version": "0.3.1+mcp.1"
+ },
+ "elapsedSec": 0.2,
+ "rawTools": [
+  {
+   "name": "bh_list_languages",
+   "description": "List every language supported by Bannerlord.Helper together with its code, English name, native name and translation file suffix.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "bh_resolve_language",
+   "description": "Resolve a loosely typed language query (code, English name or native name) into the canonical Bannerlord.Helper language record.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "query": {
+      "type": "string",
+      "description": "Language code or name to resolve."
+     }
+    },
+    "required": [
+     "query"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "bh_list_local_modules",
+   "description": "Scan the local Bannerlord installation and list installed modules (id, name, version, folder, path, dependencies). Use this to discover valid values for the `module` argument.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "filter": {
+      "type": "string",
+      "description": "Optional case-insensitive substring filter."
+     },
+     "includeOfficial": {
+      "type": "boolean",
+      "default": false,
+      "description": "Include official game modules in the result."
+     }
+    },
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "bh_search_nexusmods",
+   "description": "Search Nexus Mods for Mount & Blade II: Bannerlord modules by keywords and return matching mods with ids, authors, versions and URLs. Uses the official Nexus Mods GraphQL API, so a personal API key must be present in the NEXUS_API_KEY environment variable.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "keywords": {
+      "type": "string",
+      "description": "Search keywords, e.g. \"Diplomacy\"."
+     }
+    },
+    "required": [
+     "keywords"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "bh_module_details",
+   "description": "Fetch Nexus Mods metadata for an installed module. The Nexus id is read from the local .bh config; pass `keywords` to look it up and cache it when missing. Requires NEXUS_API_KEY, same as bh_search_nexusmods.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "module": {
+      "type": "string",
+      "description": "Installed module to operate on: module id, folder name, display name, or an absolute module directory path. Call bh_list_local_modules first if unsure."
+     },
+     "keywords": {
+      "type": "string",
+      "description": "Keywords used to look the module up on Nexus Mods."
+     },
+     "refresh": {
+      "type": "boolean",
+      "default": false,
+      "description": "Re-query Nexus Mods and overwrite the cached config."
+     }
+    },
+    "required": [
+     "module"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "bh_generate_template",
+   "description": "Generate the translation template (Languages/<code>/std_*.xml) for a module from its ModuleData XML files, mirroring `bh generate`.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "module": {
+      "type": "string",
+      "description": "Installed module to operate on: module id, folder name, display name, or an absolute module directory path. Call bh_list_local_modules first if unsure."
+     },
+     "to": {
+      "type": "string",
+      "description": "Target language of the template. Defaults to EN.",
+      "default": "EN"
+     },
+     "force": {
+      "type": "boolean",
+      "default": false,
+      "description": "Delete existing .xml templates in the target directory before writing."
+     }
+    },
+    "required": [
+     "module"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "bh_translate_module",
+   "description": "Translate an existing in-module translation template into another language and write it into the module, mirroring `bh translate`.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "module": {
+      "type": "string",
+      "description": "Installed module to operate on: module id, folder name, display name, or an absolute module directory path. Call bh_list_local_modules first if unsure."
+     },
+     "to": {
+      "type": "string",
+      "description": "Language code or name, e.g. CNs, \"Chinese Simplified\", cns, JA. Call bh_list_languages for the list."
+     },
+     "from": {
+      "type": "string",
+      "description": "Source language. Defaults to EN.",
+      "default": "EN"
+     },
+     "prefix": {
+      "type": "string",
+      "description": "Optional prefix prepended to every translated string."
+     },
+     "force": {
+      "type": "boolean",
+      "default": false,
+      "description": "Delete existing .xml files in the target directory before writing."
+     },
+     "engine": {
+      "type": "string",
+      "enum": [
+       "microsoft",
+       "google",
+       "deeplx"
+      ],
+      "default": "microsoft",
+      "description": "Translation engine."
+     }
+    },
+    "required": [
+     "module",
+     "to"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "bh_create_external_translation",
+   "description": "Create an external translation module (a separate \"<Module> <Lang>\" folder plus XSLT patches), mirroring `bh external`.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "module": {
+      "type": "string",
+      "description": "Installed module to operate on: module id, folder name, display name, or an absolute module directory path. Call bh_list_local_modules first if unsure."
+     },
+     "to": {
+      "type": "string",
+      "description": "Language code or name, e.g. CNs, \"Chinese Simplified\", cns, JA. Call bh_list_languages for the list."
+     },
+     "from": {
+      "type": "string",
+      "description": "Source language. Defaults to EN.",
+      "default": "EN"
+     },
+     "prefix": {
+      "type": "string",
+      "description": "Optional prefix prepended to every translated string."
+     },
+     "force": {
+      "type": "boolean",
+      "default": false,
+      "description": "Delete existing .xslt files before writing."
+     },
+     "engine": {
+      "type": "string",
+      "enum": [
+       "microsoft",
+       "google",
+       "deeplx"
+      ],
+      "default": "microsoft",
+      "description": "Translation engine."
+     }
+    },
+    "required": [
+     "module",
+     "to"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "bh_identifier",
+   "description": "Fill in and repair the {=identifier} translation keys inside a module's ModuleData XML files, mirroring `bh identifier`. Set dryRun to preview without writing.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "module": {
+      "type": "string",
+      "description": "Installed module to operate on: module id, folder name, display name, or an absolute module directory path. Call bh_list_local_modules first if unsure."
+     },
+     "dryRun": {
+      "type": "boolean",
+      "default": false,
+      "description": "Only count translatable entries without modifying any file."
+     }
+    },
+    "required": [
+     "module"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "bh_run_cli",
+   "description": "Escape hatch: run the bundled `bh` CLI with raw arguments. Only non-interactive invocations work headlessly (e.g. [\"language\"], [\"--version\"], [\"--help\"]).",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "args": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Raw CLI arguments, e.g. [\"language\", \"cns\"]."
+     },
+     "timeoutMs": {
+      "type": "number",
+      "default": 60000,
+      "description": "Timeout in milliseconds (max 600000)."
+     }
+    },
+    "required": [
+     "args"
+    ],
+    "additionalProperties": false
+   }
+  }
+ ],
+ "rows": [
+  {
+   "name": "bh_translate_module",
+   "props": 6,
+   "descBytes": 132,
+   "schemaBytes": 861,
+   "toolBytes": 1053,
+   "descChars": 130,
+   "extraKeys": []
+  },
+  {
+   "name": "bh_create_external_translation",
+   "props": 6,
+   "descBytes": 123,
+   "schemaBytes": 838,
+   "toolBytes": 1032,
+   "descChars": 119,
+   "extraKeys": []
+  },
+  {
+   "name": "bh_module_details",
+   "props": 3,
+   "descBytes": 210,
+   "schemaBytes": 488,
+   "toolBytes": 756,
+   "descChars": 208,
+   "extraKeys": []
+  },
+  {
+   "name": "bh_generate_template",
+   "props": 3,
+   "descBytes": 133,
+   "schemaBytes": 511,
+   "toolBytes": 705,
+   "descChars": 131,
+   "extraKeys": []
+  },
+  {
+   "name": "bh_identifier",
+   "props": 2,
+   "descBytes": 161,
+   "schemaBytes": 398,
+   "toolBytes": 613,
+   "descChars": 159,
+   "extraKeys": []
+  },
+  {
+   "name": "bh_run_cli",
+   "props": 2,
+   "descBytes": 163,
+   "schemaBytes": 296,
+   "toolBytes": 510,
+   "descChars": 155,
+   "extraKeys": []
+  },
+  {
+   "name": "bh_list_local_modules",
+   "props": 2,
+   "descBytes": 177,
+   "schemaBytes": 262,
+   "toolBytes": 501,
+   "descChars": 175,
+   "extraKeys": []
+  },
+  {
+   "name": "bh_search_nexusmods",
+   "props": 1,
+   "descBytes": 258,
+   "schemaBytes": 167,
+   "toolBytes": 485,
+   "descChars": 256,
+   "extraKeys": []
+  },
+  {
+   "name": "bh_resolve_language",
+   "props": 1,
+   "descBytes": 130,
+   "schemaBytes": 158,
+   "toolBytes": 348,
+   "descChars": 128,
+   "extraKeys": []
+  },
+  {
+   "name": "bh_list_languages",
+   "props": 0,
+   "descBytes": 131,
+   "schemaBytes": 62,
+   "toolBytes": 251,
+   "descChars": 129,
+   "extraKeys": []
+  }
+ ]
+}

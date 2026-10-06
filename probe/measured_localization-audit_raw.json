@@ -1,0 +1,62 @@
+[
+ {
+  "name": "la_audit_coverage",
+  "description": "汉化**真缺键审计**（只读）：列出 locale 下**真的缺翻译**的键，按模组汇总。回答「哪些 mod 的汉化有缺口、缺多少」。★ 口径已修正四处（这四处都会静默给出错误答案，故显式说明）：① `{=!}`（1686 次）与 `{=*}`（184 次）是**无键标记**，必须排除 —— 否则会把「故意不翻的开发者标识」算成缺翻译；② 官方 / 社区**分开** —— 官方模组缺中文是「没装官方中文包」，算进 mod 的账会得出「你的 mod 缺一万条」这种荒谬结论；③ **UTF-16 BOM 解码** —— 官方中文包是 UTF-16，按 UTF-8 扫会得到「官方翻译 0 条」；④ 键名区分大小写（`SandBox` 不是 `Sandbox`）。scope=community 只审社区模组（默认，这才是「你的 mod 缺什么」）；official 只审官方；all 全审。**只读，不写任何文件，不需要 key、不需要游戏在跑。**",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "gameDir": {
+     "type": "string",
+     "description": "游戏根目录（含 Modules/）。省略则用 BANNERLORD_DIR 环境变量"
+    },
+    "locale": {
+     "type": "string",
+     "default": "CNs",
+     "description": "语言代码，如 CNs（简中）/ CNt（繁中）"
+    },
+    "scope": {
+     "type": "string",
+     "enum": [
+      "community",
+      "official",
+      "all"
+     ],
+     "default": "community",
+     "description": "审计范围"
+    },
+    "module": {
+     "type": "string",
+     "description": "只审这一个模组（精确名，如 RBM）"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "la_dll_strings",
+  "description": "从 .NET 程序集抽取**硬编码字符串**（只读）—— 第 1 类「界面上的英文」的探测端。为什么需要它：`la_audit_coverage` 只做 **XML 侧**（`{=KEY}`），而**根本没进 XML** 的英文（Harmony 补丁写进去的、开发者硬编码的）在 XML 侧**永远查不到** —— 那正是「装了汉化界面还是英文」的常见原因。★ 两个堆都读（少读一个就会漏掉一半）：`#US`（UTF-16LE，编译器字符串字面量）+ `#Blob`（UTF-8，元数据串）。★ 两种口径都给（避免与别处对不上）：出现次数（不去重）与不同文本数（去重）。**只读，不执行 DLL、不联网。**",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "dll": {
+     "type": "string",
+     "description": "DLL 绝对路径（与 module 二选一）"
+    },
+    "module": {
+     "type": "string",
+     "description": "模组名（自动找 Modules/<名>/bin/Win64_Shipping_Client/*.dll）"
+    },
+    "gameDir": {
+     "type": "string",
+     "description": "游戏根目录（配合 module 用）"
+    },
+    "includeKeyed": {
+     "type": "boolean",
+     "default": false,
+     "description": "是否也列出带 {=KEY} 的串（默认只列无键的）"
+    }
+   },
+   "additionalProperties": false
+  }
+ }
+]

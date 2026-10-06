@@ -1,0 +1,38 @@
+# ★ 强制 LF —— 本项目编码纪律是 UTF-8 无 BOM + **LF**。
+#
+# 为什么必须有这个文件（不是可选）：
+# 本机 `core.autocrlf` 默认会把入库的 LF 转成工作区 CRLF，或在提交时把 CRLF
+# 转成 LF —— 两种都会让**同一份文件在不同机器上 hash 不同**，
+# 从而制造"我什么都没改，diff 却一大堆"的假象。
+# ⇒ 显式声明：**文本文件一律 LF 入库、LF 检出**。
+#
+# 实测背景：`git add` 时对每个文件都警告
+# "LF will be replaced by CRLF the next time Git touches it" ——
+# 那就是这条纪律会被破坏的证据。
+
+# 默认：自动嗅探文本，并按 LF 规范化
+* text=auto eol=lf
+
+# 明确的文本类型（即使内容看起来像二进制也按文本处理）
+*.py    text eol=lf
+*.md    text eol=lf
+*.ps1   text eol=lf
+*.mjs   text eol=lf
+*.json  text eol=lf
+*.txt   text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+.gitignore  text eol=lf
+.gitattributes text eol=lf
+LICENSE text eol=lf
+NOTICE  text eol=lf
+
+# 二进制（别做任何行尾转换）
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.7z    binary
+*.zip   binary
+*.dmp   binary

@@ -1,0 +1,1403 @@
+[
+ {
+  "name": "bl_status",
+  "description": "读取模块状态（是否加载、日志目录、会话内场次、最近一场战斗）+ 构建一致性（源码/构建/部署/进程内）+ 会话诊断（游戏是否真的在跑）。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {},
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_list_battles",
+  "description": "列出已记录的战斗日志文件（名称/大小/时间）",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "limit": {
+     "type": "integer",
+     "description": "最多返回多少条（默认 20，倒序）"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_analyze",
+  "description": "分析一场战斗日志，输出：血量模型校验（致死总伤害 vs 最大血量偏差）、每击伤害分布（按兵种/伤害类型/部位/武器/远近战）、挨打成本。不传 file 时分析最新一场。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "file": {
+     "type": "string",
+     "description": "战斗 JSONL 的绝对路径（可选）"
+    },
+    "format": {
+     "type": "string",
+     "enum": [
+      "text",
+      "json"
+     ],
+     "description": "默认 text"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_read_events",
+  "description": "读取原始事件行（可按类型过滤与限量），用于细节排查",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "file": {
+     "type": "string"
+    },
+    "type": {
+     "type": "string",
+     "description": "meta/unit/hit/kill/flee/panic/sample/end，可选"
+    },
+    "limit": {
+     "type": "integer",
+     "description": "默认 50"
+    },
+    "offset": {
+     "type": "integer",
+     "description": "默认 0"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_read_config",
+  "description": "回读 Warbandlord 的 config.xml 配置值（可不传 paths 取全部）",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "paths": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "形如 DamageCalc/ArmorEffect/ArmorBreakPoint；不传则返回全部"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_apply_config",
+  "description": "修改 Warbandlord config.xml（自动备份 + 写后 XML 校验）。注意：游戏需要重启后配置才生效。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "edits": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "value": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "path",
+       "value"
+      ]
+     }
+    },
+    "dry_run": {
+     "type": "boolean",
+     "description": "只预览不写入"
+    }
+   },
+   "required": [
+    "edits"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_rts_config",
+  "description": "回读 **RTSCamera** 的配置（Documents\\...\\Configs\\RTSCamera\\RTSCameraConfig.xml）。只读。用来查'攻城相机高度/自由相机/抬升触发'这些开关现在是什么值。我们不改它的代码，只当它的参数管理员（见 bl_apply_rts_config）。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "keys": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "只读这些键（如 ElevatedHeightInSiege）；不传返回全部"
+    },
+    "presets": {
+     "type": "boolean",
+     "description": "true = 顺带回显可用预设名"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_apply_rts_config",
+  "description": "写 RTSCamera 配置（自动备份 + 写后 XML 校验 + 回读核对）。**实测：改完无需重启，下一场战斗就生效**（RTSCamera 每场读一次配置）；但它运行中会把自己的配置覆写回去 ⇒ 想要「永久」请在游戏内 MCM 改。可传 preset（siege-god / free-always / elevated-always / god-full）或 edits。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "preset": {
+     "type": "string",
+     "description": "预设名：siege-god(攻城抬升10) / free-always / elevated-always / god-full"
+    },
+    "edits": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "key": {
+        "type": "string"
+       },
+       "value": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "key",
+       "value"
+      ]
+     },
+     "description": "逐键写入，如 [{\"key\":\"ElevatedHeightInSiege\",\"value\":\"10\"}]"
+    },
+    "dry_run": {
+     "type": "boolean",
+     "description": "只预览不写入"
+    },
+    "allow_missing": {
+     "type": "boolean",
+     "description": "允许写入表里不存在的键（默认 false）"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_ghost_camera",
+  "description": "开关**引擎自带**的自由观察相机（幽灵模式）。运行时生效、**对任何一场战斗都有效**（包含你自己打的），不像 spectate 只对 AI 场次。做法：设 `MissionScreen.IsCheatGhostMode` —— 相机模式变 Free，且命令 UI 开着也保持自由（能观战 + 能下令）。⚠️ 要能自己用 WASD 飞还需 engine_config.txt 的 cheat_mode=1（只读项，我们不改）。装了 RTSCamera 的机器优先用它的配置（bl_apply_rts_config）。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "mode": {
+     "type": "string",
+     "enum": [
+      "status",
+      "on",
+      "off",
+      "toggle"
+     ],
+     "description": "默认 status（只查）；on/off/toggle 切换"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_camera_speed",
+  "description": "相机移动速度分三条互不相干的腿，用 mode 指名：`shift` = 引擎自由相机的 Shift 倍率（**不需要作弊模式**，改完按住 Shift 飞就生效）；`base` = 引擎自由相机的基础倍率（⚠️ 引擎把速度分量 clamp 在 ±20，调到某个量之后可能不再变快）；`rts` = RTSCamera 的相机速度系数（**最有效**：上限随基础速度一起放大，没有那个天花板）；`boost` = 三条一次设成同一个值；`status` = 只读现状（默认）；`probe` = 测速探针。每条腿都**写完回读**，失败会点名是哪条腿、为什么 —— 不静默。装了 RTSCamera 时优先用 rts。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "mode": {
+     "type": "string",
+     "enum": [
+      "status",
+      "shift",
+      "base",
+      "rts",
+      "boost",
+      "probe"
+     ],
+     "description": "默认 status（只查）；shift/base/rts/boost 需要 value；probe = 测速探针"
+    },
+    "value": {
+     "type": "number",
+     "description": "倍率：shift 需 ≥1 的整数；base / rts / boost 为 0.1~1000"
+    },
+    "action": {
+     "type": "string",
+     "enum": [
+      "end"
+     ],
+     "description": "仅 mode=probe 用：不带 = 记起点，带 end = 记终点并算速度（位移/墙钟秒数）"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_control_agent",
+  "description": "接管士兵（**最小版**）：把 `Mission.MainAgent` 换成友方某个 agent 并交给玩家控制器。官方那条路（`CanTakeControlOfAgent`）**只在主角阵亡后**才允许、且**不改 MainAgent**；本工具补上「随时接管」。选目标：`agentIndex` > `troop` > `formation` > 该方第一个存活者；只允许玩家方（拒绝敌人）。`mode=release` 换回接管前记录的那个主角色；`mode=status` 只看现状（不改任何东西）。装了 RTSCamera 时会走它自己的**平滑推镜**，结果在 `cameraFollow`；没装则退回只复位 screen。⚠️ 与 RTSCamera 并存时它的 `ControlTroop` 键也会改 MainAgent，两边会互相覆盖。未实现、传了就报 unsupported_param：agentId / slot / mount / weapon。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "mode": {
+     "type": "string",
+     "enum": [
+      "take",
+      "release",
+      "status"
+     ],
+     "description": "默认 take（接管）；release = 换回原始主角色；status = 只读现状"
+    },
+    "agentIndex": {
+     "type": "integer",
+     "description": "引擎的 agent.Index（遥测/事件里的 agent 字段就是它）；优先级最高，但换一场就变"
+    },
+    "troop": {
+     "type": "string",
+     "description": "兵种 id（Character.StringId），取该方第一个存活的"
+    },
+    "formation": {
+     "type": "string",
+     "description": "编队：Infantry/Ranged/Cavalry/HorseArcher/Skirmisher 或 0~4"
+    },
+    "side": {
+     "type": "string",
+     "enum": [
+      "player",
+      "attacker",
+      "defender"
+     ],
+     "description": "从哪一方里挑目标，默认 player（但只接受玩家方的 agent）"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_order",
+  "description": "战斗中途改令：对**正在进行**的战斗里某一方的编队改 movement / 移动到指定点 / 冲锋到指定敌方编队 / 攻击指定敌方单位 / 阵列 / 射击纪律 / 骑乘令。⚠️ 只在战斗内有意义：mission 之外碰 MovementOrder 会抛 TypeInitializationException并把该类型永久标记为不可用，所以没战斗时直接拒（no_mission）。⚠️ movement / position / target / targetAgent **四者互斥**（一个编队只能有一个 movement order）；riding 与它们**正交**（只管骑不骑、不管去哪），不参与互斥。默认 detachAI=true（连带 SetControlledByAI(false,false)）；否则 team 级战术会周期性把令覆盖回去（实测守方 stop 组被覆盖 59/115 次、位移 154 m）。设 false 仅用于对照组。判据是**当场回读**：三种 movement order 都回传 orderBefore/orderAfter；position 另回传 moveTarget（引擎按导航网格算的落点，与请求值有偏差属引擎修正），target 另回传 targetAfter + targetDistance。要确认没被覆盖，隔几秒再调一次看是否仍是上次的值。⚠️ emptyFormations > 0 = 令写进去了但那个编队没人 ⇒ 没人执行（编队按兵种自动分：弓手在 Ranged、近战步兵在 Infantry，先核对 formation 选对没）。⚠️ targetAgent 的目标会死：阵亡后重申会跳过并记 order error（不静默改成冲锋）。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "side": {
+     "type": "string",
+     "enum": [
+      "player",
+      "attacker",
+      "defender"
+     ],
+     "description": "哪一方，默认 player"
+    },
+    "formation": {
+     "type": "string",
+     "description": "编队：Infantry/Ranged/Cavalry/HorseArcher/Skirmisher 或下标 0~4；不传 = 该方所有有兵的编队"
+    },
+    "movement": {
+     "type": "string",
+     "enum": [
+      "charge",
+      "advance",
+      "fallback",
+      "stop",
+      "retreat"
+     ],
+     "description": "改 movement（hold 已移除：引擎层等同 stop）。会被组路径 0.5s 重申覆盖，本工具同步改「待重申的值」（回传 pendingSpecsUpdated）"
+    },
+    "position": {
+     "type": "string",
+     "description": "移动到指定点：\"x,y\" 或 \"x,y,z\"（英文逗号，单位米，各分量 |值| ≤ 10000；z 省略 = 0）。本工具会标成「手动令优先」（回传 pendingSpecsUpdated），重申时照原样重申同一点，不会退回 charge"
+    },
+    "target": {
+     "type": "string",
+     "description": "冲锋到指定**敌方编队**：Infantry/Ranged/Cavalry/HorseArcher/Skirmisher 或下标 0~4。目标编队为空/不存在时直接拒，不静默换成普通冲锋。回传 targetAfter / targetDistance"
+    },
+    "arrangement": {
+     "type": "string",
+     "enum": [
+      "line",
+      "shieldwall",
+      "circle",
+      "square",
+      "skein",
+      "column",
+      "loose",
+      "scatter"
+     ],
+     "description": "改编队阵列：**不在**组路径重申范围内"
+    },
+    "firing": {
+     "type": "string",
+     "enum": [
+      "fireAtWill",
+      "holdFire"
+     ],
+     "description": "改射击纪律：引擎只有这两档"
+    },
+    "targetAgent": {
+     "type": "integer",
+     "description": "攻击指定**敌方单位**：agent 下标（可从遥测或 bl_control_agent status 的 candidates 取）。回传 targetEntitySet / targetAgentAlive / targetDistance"
+    },
+    "riding": {
+     "type": "string",
+     "enum": [
+      "free",
+      "mount",
+      "dismount"
+     ],
+     "description": "改骑乘令：free 不干预 / mount 上马 / dismount 下马。回传 ridingBefore/ridingAfter；只对**有坐骑**的单位有实际效果"
+    },
+    "detachAI": {
+     "type": "boolean",
+     "description": "是否连带 SetControlledByAI(false,false)，默认 true；设 false 只用于「看它会不会被战术覆盖」的对照"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_skip_video",
+  "description": "跳过开场动画。**不模拟 ESC**，而是先问「当前活动状态是不是 `VideoPlaybackState`」，是就直接调它的 `OnVideoFinished()`。判据硬、无副作用；不是视频时如实报 `not_video` 并回传当前状态名。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {},
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_cheat_mode",
+  "description": "开关**作弊模式**（带回读：写 NativeConfig.CheatMode 再回读验证）。**为什么需要它**：引擎自由相机的倍率热键（Ctrl+↑ ×1.5 / Ctrl+↓ ×2÷3 / Ctrl+中键重置）与观察者 HUD 的「摄像机移动速度」读数都被 `Game.Current.CheatMode` 门控 ⇒ 这是「相机太慢」的另一条正解，不改我们的相机代码。⚠️ 开了它 = 打开开发者/作弊通道（F2/F3/F4 杀敌杀友、Ctrl+K 幽灵相机、Ctrl+F5 换控制权等一并生效）；本工具**不做任何自动开启**，只按显式请求执行。只作用于本次进程，重启回到 engine_config.txt 的设置。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "mode": {
+     "type": "string",
+     "enum": [
+      "status",
+      "on",
+      "off",
+      "toggle"
+     ],
+     "description": "默认 status（只查）"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_battle_status",
+  "description": "查询游戏内推演状态机（idle/loading/running/ended/error）、进度（双方存活数）与最近一次结果",
+  "inputSchema": {
+   "type": "object",
+   "properties": {},
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_start_battle",
+  "description": "⚡【Agent 调用纪律 · 必读】收到\"开一场战斗\"类需求时**直接调用本工具**，禁止先去列目录 / 读 XML / 查索引确认兵种 id：troop id 由引擎侧 MBObjectManager 现场 Resolve，前置探索不产生任何新信息。缺参数就一次性问清（模式/人数/兵种/是否上帝视角）；参数齐了立刻开。第三方模组兵种（如 WarlordsBattlefield 的 empire_infantry5）不在官方索引里，必须带 skipTroopCheck=true；attackerTroop/defenderTroop 必填（即使给了 Groups）。攻城常用 scene=empire_town_c（Ortysia），要上帝视角带 rtsPreset=siege-god。开一场**无玩家**的 AI 对 AI 战斗（10 倍速）；游戏需停在官方自定义战斗界面（用 bl_open_ui 进入）。城池场景自动走攻城。返回 accepted 后用 bl_wait_for_state 等 ended。v0.8.41 新增：attackerTacticLevel/defenderTacticLevel（战术档位，需配 orders=default 才看得出效果）、terrain/randomTerrainSeed（地形）、aiFriendlyFireMultiplier（**打到「玩家方」身上的伤害**倍率 —— 不是同队误伤，见该参数的说明）、keepCorpses、sceneLevel/timeOfDay（攻城）。被忽略的参数会在响应的 envNotes 里报出 —— 绝不静默。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "attackerTroop": {
+     "type": "string",
+     "description": "攻方兵种 id，如 imperial_legionary"
+    },
+    "attackerCount": {
+     "type": "integer",
+     "description": "攻方人数，默认 20"
+    },
+    "defenderTroop": {
+     "type": "string",
+     "description": "守方兵种 id，如 battanian_fian_champion"
+    },
+    "defenderCount": {
+     "type": "integer",
+     "description": "守方人数，默认 20"
+    },
+    "scene": {
+     "type": "string",
+     "description": "场景名，默认 battle_terrain_a"
+    },
+    "durationCapSec": {
+     "type": "integer",
+     "description": "单场时长上限（游戏内秒），默认 600"
+    },
+    "orders": {
+     "type": "string",
+     "enum": [
+      "charge",
+      "default"
+     ],
+     "description": "战术对称化。charge（默认）=双方都用 TacticCharge，消除攻守方向偏差（实测镜像对局 13:0 一边倒）；default=引擎默认战术，仅作 A/B 对照"
+    },
+    "playerSide": {
+     "type": "string",
+     "enum": [
+      "attacker",
+      "defender"
+     ],
+     "description": "谁被标记为玩家侧，仅排查该标记是否带来系统性偏差，默认 attacker"
+    },
+    "spectate": {
+     "type": "boolean",
+     "description": "兜底观战镜头（默认 false）。true = 挂官方 ICameraModeLogic 走自由观察相机。⚠️ 装了 RTSCamera 时野战会被它抢先（无效果），**优先用 rtsPreset**"
+    },
+    "rtsPreset": {
+     "type": "string",
+     "description": "开战前套用 RTSCamera 预设：siege-god=攻城也抬升视角；free-always / elevated-always / god-full。改完无需重启即对本场生效，会先备份"
+    },
+    "dummySide": {
+     "type": "string",
+     "enum": [
+      "none",
+      "attacker",
+      "defender"
+     ],
+     "description": "不朽靶场：把该方设为永不倒下的靶子，默认 none"
+    },
+    "freezeDummies": {
+     "type": "boolean",
+     "description": "冻结靶子 AI（不还手）。默认 false"
+    },
+    "unlimitedAmmo": {
+     "type": "boolean",
+     "description": "给射手补满弹药（靶子的弹药不补 —— 它是被测对象），默认 false"
+    },
+    "dummyArmor": {
+     "type": "string",
+     "description": "靶子护甲数值覆盖，如 \"head=45,torso=35,legs=20,arms=25\"（只作用于靶子；未知部位名/非数字直接报错）"
+    },
+    "dummyBodyItem": {
+     "type": "string",
+     "description": "把靶子**身甲**换成该物品 id（材质对照实验用，如 plated_leather_coat）。材质抗性只来自物品，数值可另用 dummyArmor 对齐"
+    },
+    "skipTroopCheck": {
+     "type": "boolean",
+     "description": "跳过兵种 id 校验（默认 false）。校验走 BannerlordSage 索引，只覆盖官方 XML；用第三方模组兵种时置 true"
+    },
+    "allowAnyState": {
+     "type": "boolean",
+     "description": "跳过「必须停在自定义战斗界面」检查（默认 false）。⚠️ 实测：**裸主菜单下兵种/文化数据未加载**，传任何兵种 id 都是 unknown_troop ⇒ 它**不能**用来『从主菜单开战』（该原始设计目标当年就已被排除，见 PROGRESS §四）。⚠️ 也**不要**再用它去绕 wrong_state —— 带 NavalDLC 时官方入口落 NavalCustomBattleState，v0.8.44 起判据已改为后缀匹配 `*CustomBattleState`，正常走 open_ui 就不会被误报。"
+    },
+    "rounds": {
+     "type": "integer",
+     "description": "多轮连续实验：同一 mission 内跑 N 轮（每轮独立日志），默认 1 = 关闭"
+    },
+    "roundEndAlive": {
+     "type": "integer",
+     "description": "某方存活 ≤ 此值即判定本轮结束（默认 1）"
+    },
+    "roundSwap": {
+     "type": "boolean",
+     "description": "每轮交换攻守（第 2、4…轮把原守方放到攻方位置）"
+    },
+    "roundSpawnAttacker": {
+     "type": "string",
+     "description": "重生时攻方进场点，如 \"100,0,200\"（x,y,z 或 x,z）"
+    },
+    "roundSpawnDefender": {
+     "type": "string",
+     "description": "重生时守方进场点，语法同上"
+    },
+    "randomSeed": {
+     "type": "integer",
+     "description": "随机种子（-1 = 不设）。⚠️ 伤害公式的随机命中因子在 native 层掷，同种子不保证逐值复现"
+    },
+    "attackerGroups": {
+     "type": "string",
+     "description": "攻方多兵种/战术组：troop:count[:formation[:movement]]，多组用 | 分隔。给了它则 attackerTroop/attackerCount 被忽略；与 orders 互斥。⚠️ 第 3 字段 formation **不决定编队**（编队由兵种自身决定），只回显；写错族名会在 formationWarnings 里被点名（不阻断开战）"
+    },
+    "defenderGroups": {
+     "type": "string",
+     "description": "守方多兵种/战术组，语法同上"
+    },
+    "attackerTacticLevel": {
+     "type": "integer",
+     "description": "攻方战术档位：-1（默认，不覆盖）或 0..100。引擎用它**分 20 / 50 两档**决定给该方挂哪些 TacticOption（<20 只有 TacticCharge；>=20 追加 TacticFullScaleAttack 等；>=50 再追加 TacticFrontalCavalryCharge 等）。⚠️ 默认 orders=charge 会 ClearTacticOptions() 只留 TacticCharge —— 想真的看到档位效果，要配 orders=default（保留引擎战术菜单）。响应与 status 里的 aNative/dNative 是引擎原生值（= 参战兵种 max(Tactics)），用来和你设的值对照"
+    },
+    "defenderTacticLevel": {
+     "type": "integer",
+     "description": "守方战术档位，语义同上"
+    },
+    "terrain": {
+     "type": "string",
+     "description": "地形覆盖（默认不设 = 引擎按场景决定）。可选：plain | desert | snow | forest | steppe | fording | mountain | lake | water | river | canyon | ruralarea | swamp | dune | bridge | coastalsea | opensea | beach | cliff | nonnavigableriver | landrestriction | searestriction | underbridge。⚠️ 只管野战路径；攻城走官方入口，传了会被显式忽略并在 envNotes 里报出。⚠️ **在自定义战斗里它没有托管消费者**（2026-10-05 反证）：唯一已知消费点`SandboxAgentStatCalculateModel` 只注册在战役模式；自定义战斗用的是 `CustomBattleAgentStatCalculateModel`（全文 Terrain/Perk 命中 0）⇒ 本靶场实测「默认 vs snow 无可测差异」（native 侧未排除）"
+    },
+    "randomTerrainSeed": {
+     "type": "integer",
+     "description": "随机地形种子（默认不设）。设了会同时打开 NeedsRandomTerrain。⚠️ 托管侧零读取消费者；实测把引擎的**植被指纹**（rgl 日志的 `Placed tree/flora count`）当判据，种子 -1/-1/7/12345 四次场景加载**逐字相同**⇒ 该判据下**无可测差异**（不代表参数无效：指纹看不到地形索引图/地表材质）"
+    },
+    "keepCorpses": {
+     "type": "boolean",
+     "description": "关掉尸体淡出（默认 false）。长跑/多轮时尸体量稳定 ⇒ 性能与寻路不随轮次漂移。v0.8.45 起可用 `sample` 事件的 **`corpses`** 字段验证行为效应：实测对照的尸体数 13→7→5→1→0（会淡出），而 keepCorpses=true 时单调升到 19 并**从不回落**"
+    },
+    "sceneLevel": {
+     "type": "integer",
+     "description": "攻城场景升级等级 1..3（默认 3 = 改动前的写死值）。仅攻城路径生效"
+    },
+    "timeOfDay": {
+     "type": "number",
+     "description": "攻城开战时刻，小时 0..24（默认 6 = 改动前的写死值）。仅攻城路径生效"
+    }
+   },
+   "required": [
+    "attackerTroop",
+    "defenderTroop"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_wait_for_state",
+  "description": "轮询等待推演状态（idle/loading/running/ended/error），到点返回当前状态与结果。开战后的 `loading` 段是引擎加载场景（秒级~几十秒），本工具只是盯状态，1s 一轮；running 但引擎停滞（stalled）会提前判无效并早退。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "state": {
+     "type": "string",
+     "description": "目标状态，默认 ended"
+    },
+    "timeoutSec": {
+     "type": "integer",
+     "description": "最长等待秒数，默认 180"
+    },
+    "pollSec": {
+     "type": "number",
+     "description": "轮询间隔秒，默认 1"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_abort",
+  "description": "中止当前正在进行的推演（调用引擎的 Mission.EndMission，走官方结束路径）",
+  "inputSchema": {
+   "type": "object",
+   "properties": {},
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_list_ui",
+  "description": "列出游戏内所有可进入的入口（初始状态选项）+ 当前激活状态 + **官方自定义战斗场景全表**（合并表 CustomBattleScenes，含模式：战斗/围攻/村庄/领主大厅/海战/海上掠夺，以及地形、场景等级、目录是否真的存在）。只读。用它替代\"靠记忆猜 id/场景名\"：id、名字与场景表都是引擎当场给的。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "scenesMode": {
+     "type": "string",
+     "enum": [
+      "all",
+      "battle",
+      "siege",
+      "village",
+      "lordsHall",
+      "naval",
+      "navalRaid"
+     ],
+     "description": "只返回某一模式的场景（默认 all）"
+    },
+    "sceneLimit": {
+     "type": "integer",
+     "description": "最多返回多少行场景（默认 0 = 全吐；全表 314 行约 35 KB）"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_open_ui",
+  "description": "走官方正门唤起一个游戏内界面（默认 = 官方自定义战斗界面，uiId=CustomBattle）。v0.8.14 起不再有自建面板 —— 官方界面本身就是完整入口（战斗/围攻/村庄/海战/海上掠夺 + 玩家类型 + 选择攻守方 + 全套地图参数）。⚠️ 入口动作是 fire-and-forget（跨帧加载）：返回 requested=true 只代表已触发，请用 bl_list_ui 轮询 activeState 是否真的变了。⚠️ CustomBattleState 从主菜单进**官方本身要 ~30s 才落地**（真机实测，不是本工具慢）；本工具不代等，落地判据见 bl_launch_game 第二步。⚠️ 只在**主菜单**可用：游戏已加载时执行它会让状态栈卡在 GameLoadingState（真机实测过）。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "uiId": {
+     "type": "string",
+     "description": "入口 id，默认 CustomBattle；全部可用 id 见 bl_list_ui。⚠️ 不接受也不要叫 `id`：控制通道的 JSON 读取器是扁平的，`id` 会被信封里那个请求 id 顶掉（v0.8.12 真机踩过）"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_close_ui",
+  "description": "从官方自定义战斗界面回主菜单（与官方 CustomBattle 的「返回」同一路径：PopState）。open_ui 进去了就用它出来。白名单**只有** CustomBattleState：别的状态一律返回 bad_state —— 不会去 pop 引擎的任意状态。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "state": {
+     "type": "string",
+     "enum": [
+      "CustomBattleState"
+     ],
+     "description": "要离开的状态，默认且仅支持 CustomBattleState"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_get_screen",
+  "description": "只读：读当前界面的层 / 影片 / 可点按钮（文本 + 是否可用 + 状态 + id）—— 读界面，不模拟鼠标（合成输入到不了官方界面）。返回 screenType / layerCount / layers[]（name、isActive、movies[]：movieName、dataSource、buttonCount、buttons[]）。地图装饰层默认跳过，layerFilter 只看某层。⚠️ 按钮定位**优先用 text**：id 常常是空的、而且不唯一（真机 2026-09-27：主菜单 11 个按钮只有 1 个有 id；自定义战斗界面 16 个里 AddTroopButton 占 8 个）。前置：游戏在跑，且已部署含 get_screen 的 DLL（v0.8.34+；未部署会 no_response）。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "layerFilter": {
+     "type": "string",
+     "description": "可选：只返回层名包含该子串的层（大小写不敏感），并展开其全部按钮"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_get_viewmodel_property",
+  "description": "只读：读当前界面某层 ViewModel 的一个属性；点号路径可穿透嵌套（如 'Smelting.SmeltableItemList'）。列表属性返回 count + items + missingSubProperties，subProperties 抽每项的子字段。layerName 从 bl_get_screen 的 layers[].name 取。⚠️ 属性不存在 = `ok:false` / `property_not_found` 并给出候选属性名（不是 value:null）；`value:null` 只表示‘属性存在、值就是空’。层名写错 = `no_data_source` 并点名那层。前置同 bl_get_screen（游戏在跑 + DLL 已部署 v0.8.34+）。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "propertyName": {
+     "type": "string",
+     "description": "ViewModel 上的属性路径，点号分隔，如 'PlayerGold' 或 'Smelting.SmeltableItemList'"
+    },
+    "layerName": {
+     "type": "string",
+     "description": "层名（从 bl_get_screen 的 layers[].name 取；如 'CustomBattle'）"
+    },
+    "subProperties": {
+     "type": "string",
+     "description": "可选：对列表属性的每项，逗号分隔抽取的子字段名，如 'ItemDescription,ItemCost'"
+    }
+   },
+   "required": [
+    "propertyName",
+    "layerName"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_get_inventory",
+  "description": "只读：读玩家队伍的库存清单（主队伍 ItemRoster）+ 金币。返回 gold / itemCount / totalElements / items[]（name、id、quantity、type、value、weight、tier）。limit 控制最多返回几条（默认 50；截断时 totalElements 是真实总数，可对账）。⚠️ 前置：**战役内**（Campaign 上下文）—— 主菜单 / 自定义战斗会如实报 no_campaign，不猜。需要已部署含 get_inventory 的 DLL（v0.8.36+）。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "limit": {
+     "type": "integer",
+     "description": "最多返回的条目数，默认 50"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_list_saves",
+  "description": "只读：列出所有存档（MBSaveLoad.GetSaveFiles）。返回 count / saves[]（name、isCorrupted、meta：存档元数据键值包，含模组/版本信息）。name 是唯一标识，喂给 bl_load_save。前置：游戏在跑（v0.8.36+ DLL）。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {},
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_load_save",
+  "description": "**按名字直载存档**（MBSaveLoad.LoadSaveGameData + StartNewGame，不经过存档选择界面）—— 无人值守换档的正门，也是复现读档期弹窗（模组不匹配）的测试入口。异步加载：返回 started=true 后轮询 bl_list_ui 等 topScreen 变 *MapScreen（自动应答器会点掉『模组不匹配』的『是』）。⚠️ 前置：主菜单（战役进行中拒绝 in_campaign）；name 必须精确匹配 bl_list_saves 的 name（不存在 → save_not_found 并列出可用档）。需要 v0.8.36+ DLL。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "name": {
+     "type": "string",
+     "description": "存档名（bl_list_saves 里的 name，精确匹配）"
+    }
+   },
+   "required": [
+    "name"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_campaign_time",
+  "description": "只读：战役时间/暂停状态诊断。status（默认，也是唯一可用的 mode）回读 timeControlMode / inMenuContext / campaignDays / pauseMenuOpen。**pauseMenuOpen** = 地图上的暂停菜单（ESC 菜单）是否开着 —— 原版在失焦时若 BannerlordConfig.StopGameOnFocusLost=true 会自动打开它，而它会向 GameStateManager 注册 ActiveStateDisableRequest ⇒ MapState 不再 Tick ⇒ 整个战役冻结（档位却仍是 StoppablePlay）⇒ 判定「切窗口会不会被暂停」只能靠本字段。**campaignDays** = 单调递增的战役天数（CampaignTime.Now.ToDays）：失焦前后各读一次，天数涨了才证明时间真的在走（timeControlMode 不是 Stop 证明不了引擎没冻结战役推进）。⚠️ v0.8.39：时间保活（mode=on/off）已移除 —— 用户明确不需要改游戏的时间暂停，而且它看不见暂停菜单那种暂停、副作用还会顶掉手动暂停。要「切窗口不弹暂停菜单」请用原版选项 BannerlordConfig.StopGameOnFocusLost=false（PROGRESS §三十二）。前置：战役加载后才有 timeControlMode / campaignDays 字段。v0.8.36+ 才有本工具。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "mode": {
+     "type": "string",
+     "enum": [
+      "status"
+     ],
+     "description": "只接受 status（默认）；on/off 已在 v0.8.39 移除，传了会显式报错"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_campaign_overview",
+  "description": "只读：战役全局概览（控制面 A 阶段）。返回 inCampaign / clans / kingdoms / settlements / mobileParties 计数，以及玩家 gold / influence / playerClan / playerKingdom / campaignDays / timeControlMode。⚠️ 前置：战役内（Campaign 上下文）；主菜单 / 自定义战斗如实报 no_campaign，不猜。需要 v0.8.40+ DLL（含 campaign_overview）。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {},
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_list_kingdoms",
+  "description": "只读：列出所有王国（Kingdom）。返回 count / kingdoms[]（name、stringId、rulingClan、leader、clanCount、gold、isKingdom）。limit 控制最多返回几条（默认全量）。前置：战役内。需要 v0.8.40+ DLL。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "limit": {
+     "type": "integer",
+     "description": "最多返回的条目数，默认全量"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_list_clans",
+  "description": "只读：列出所有家族（Clan）。返回 count / clans[]（name、stringId、tier、gold、influence、kingdom、leader、isMinor、isEliminated、fiefCount、partyCount）。limit 控制最多返回几条（默认全量）。前置：战役内。需要 v0.8.40+ DLL。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "limit": {
+     "type": "integer",
+     "description": "最多返回的条目数，默认全量"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_list_settlements",
+  "description": "只读：列出所有封地（Settlement）。返回 count / settlements[]（name、stringId、type=town/castle/village/hideout、ownerClan、mapFaction，以及 town 的 prosperity/loyalty/security/foodStocks、village 的 hearth）。limit 控制最多返回几条（默认全量）。前置：战役内。需要 v0.8.40+ DLL。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "limit": {
+     "type": "integer",
+     "description": "最多返回的条目数，默认全量"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_list_parties",
+  "description": "只读：列出地图上所有队伍（MobileParty）。返回 count / parties[]（name、stringId、isMainParty/isLordParty/isCaravan/isGarrison、leader、mapFaction、partyType、strength、morale、gold、size、aiBehavior、targetSettlement、targetParty）。limit 控制最多返回几条（默认全量）。前置：战役内。需要 v0.8.40+ DLL。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "limit": {
+     "type": "integer",
+     "description": "最多返回的条目数，默认全量"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_campaign_log",
+  "description": "只读：战役日志快照（最近 N 条 LogEntry）。返回 count / entries[]（text、time）。count 控制条数（默认 20，上限 200）。注意：这是快照而非实时流；实时订阅后续版本提供。前置：战役内。需要 v0.8.40+ DLL。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "count": {
+     "type": "integer",
+     "description": "返回的日志条数，默认 20，上限 200"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_fast_forward",
+  "description": "开关战斗加速（10 倍速，引擎官方 Mission.IsFastForward 通道，由 BlBridge 每帧重申）。对**你自己手打的战斗**同样生效（含自定义战斗），不依赖 RTSCamera 等第三方 mod。注意：原版引擎没有战斗加速键，RTSCamera 的快进需要手动绑键且会互相独立。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "enabled": {
+     "type": "boolean",
+     "description": "true=开启加速，false=关闭"
+    }
+   },
+   "required": [
+    "enabled"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_patches",
+  "description": "**Harmony 补丁内省（只读）**：回答「**谁补了哪个方法**」。为什么需要它：三合一 MOD（RBM + Warbandlord + RCM）的**核心风险就是「双重叠加」** —— 两个 mod 补同一方法、Transpiler 撞 Transpiler 会不会生成非法 IL。此前只能靠猜（2026-10-06 做 C6 血量系统时，我就是靠猜「我的补丁装上没有」「和 RBM 既有的撞没撞」）。conflicts=true 只列被 ≥2 个 owner 补的方法；transpilerClash=true 是**最危险**的一类（改 IL，出错就是崩溃）。⚠️ 它**只读** Harmony 的公开内省 API（不建实例、不 patch、不改 IL），与 EngineProbe 同性质，不破坏本项目「删模块即完全回退」。Harmony 未安装时返回 available=false（用反射，BlBridge 对 0Harmony 零依赖）。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "method": {
+     "type": "string",
+     "description": "只看补某个方法（简短类型名或全名，如 Mission / DefaultCharacterStatsModel；也支持方法名子串）"
+    },
+    "owner": {
+     "type": "string",
+     "description": "只看某个 Harmony 实例 id（如 com.rbmcombat / com.rbmmain / bannerlord.uiextender.ex）"
+    },
+    "conflicts": {
+     "type": "boolean",
+     "description": "只看被 ≥2 个 owner 补的方法（★ 核心判据）"
+    },
+    "detail": {
+     "type": "boolean",
+     "description": "是否给出每个补丁的明细行（默认 true；false 只给计数，省 token）"
+    },
+    "limit": {
+     "type": "integer",
+     "description": "最多返回几个方法，默认 100"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_patch_failures",
+  "description": "**补丁失败清单**：把 Harmony 的 `HarmonyException` 从「现象」变成「点名」。返回每条失败**想补的目标**（`targetClass` / `targetMethod`）与出现次数。为什么需要它：`bl_patches` 只说「这个方法**没被补**」，**不会说为什么**；而异常消息里直接写着原因（如 `Ambiguous match for HarmonyMethod[(class=X, methodname=Y, …)]` ⇒ 方法有重载、Harmony 找不到唯一目标）。★ **用法（两座桥交叉）**：拿这里的 `targetClass` 交给 `bl_patches` 按类型反查，就能看到该类型上**谁在打补丁**（同类型的邻居方法上会露出 owner）⇒ 从而定位到是哪个 mod 的补丁失败了。⚠️ **边界（如实）**：发起补丁的 mod **不在异常里**（HarmonyException 只带目标描述），所以本工具给的是**线索**而非归因结论。⚠️ 只含**托管**异常；JIT 期失败与原生崩溃不在其中。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {},
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_exceptions",
+  "description": "**运行时异常统计（FirstChance 捕获的只读视图）**。BlBridge 在模块加载时订阅 `AppDomain.FirstChanceException`（**.NET 原生事件，零 Harmony、不改任何 IL**），把托管异常落进 `<日志目录>\\exceptions.jsonl`（追加模式）；本工具返回统计：总共见到多少、多少种、队列积压、丢弃数、出现次数 Top。为什么需要它：**ButterLib 的崩溃报告不落盘**（只弹 ImGui/WinForms 窗口，实测没有自动写文件的开关），而 BlBridge 是无人值守的 ⇒ 弹窗会卡死流程。★ 与 `bl_crash` **互补**：那个读 WER minidump 管「进程已死」，这个管「进程还活着」。⚠️ **边界（如实）**：只含**托管**异常；**JIT 期失败**（非法 IL）与**原生崩溃**（0xC0000005 等）抓不到 —— 那些不在任何方法体内，只能靠 dump。⚠️ `dropped > 0` 表示异常风暴时队列满、**明细不全**（计数仍准确）。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {},
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_ui_extensions",
+  "description": "**UIExtenderEx 界面扩展（只读）**：列出每个模块通过 UIExtenderEx **改了哪些官方界面**，以及每个界面上挂了哪些扩展类（含 ViewModel mixin 计数）。为什么需要它：UIExtenderEx 是**界面扩展层**（本机在跑 v2.13.3，自己就打了 19 个 Harmony 补丁），而**多个 mod 改同一个官方界面**时，它是唯一能直接回答「谁改了什么」的地方。对三合一项目的直接价值：C4（浮点输入框）手工做过 `WidgetFactory._builtinTypes` / `WidgetInfo._widgetInfos` 注册，而 UIExtenderEx 的 WidgetFactoryManager/WidgetPrefab 补丁**做的是同一件事** ⇒ 它的实现是本项目那份的成熟版对照物。⚠️ 只读 + **零依赖**（反射，不引用其程序集）；未装时返回 available=false。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "module": {
+     "type": "string",
+     "description": "只看某个模块的扩展（按 ModuleName 精确匹配，如 RaiseYourBanner）；不传则列全部"
+    },
+    "moviesOnly": {
+     "type": "boolean",
+     "description": "只列界面名，不列每个界面上的扩展类（省 token）"
+    },
+    "limit": {
+     "type": "integer",
+     "description": "每个模块最多列几个界面，默认 200"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_mcm_settings",
+  "description": "**MCM 设置表（只读）**：列出 Mod Configuration Menu 里注册的全部设置块与设置项，含每项的当前值 / 类型 / 值域 / 是否需重启 / 提示文本。为什么需要它：MCM 是**四前置级**组件（本机在跑 v5.12.3，自己就打了 22 个 Harmony 补丁），而**面板型 mod 的可调参数最终都落成 MCM 设置项** ⇒ 读得到它等于拿到全场 mod 的参数面。对三合一项目的直接价值：C8 要手搓 172 个表格型控件，先看清 MCM 里已有什么，才能判断该复用还是该自建。⚠️ 只读 + **零依赖**（反射，不引用 MCM 程序集）：不注册设置、不写值、不碰它的 DI 容器；MCM 未装时返回 available=false。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "settingsId": {
+     "type": "string",
+     "description": "只看某个设置块（如 ButterLib / CharacterReload）；不传则列全部块"
+    },
+    "summary": {
+     "type": "boolean",
+     "description": "只给每块的项数，不展开每一项（省 token）"
+    },
+    "withValues": {
+     "type": "boolean",
+     "description": "是否读当前值，默认 true；false 只给元数据"
+    },
+    "limit": {
+     "type": "integer",
+     "description": "每块最多几项，默认 200"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_crash",
+  "description": "**崩溃取证（宿主侧，进程死后也能用）**：解析 Windows 自动落盘的 minidump，给出「异常代码 + 崩溃模块+偏移 + 访问的目标地址」，并把它接到 BlBridge 的会话上（pid 是否同一个进程 / 崩时在打哪一场 / 最后几行遥测）。为什么需要它：`bl_status` 能判 `crashed` 但**不说崩在哪**；而翻 ModLogs 对原生崩溃**无效**（RBM 的 Debug.Print 不落那份日志，且 ButterLib/BEW 的托管 Finalizer 结构上抓不到原生访问违规）。minidump 是公开格式，本工具**纯标准库解析、零依赖**。deep=true 时再用真调试器（cdb）拿**符号化托管栈 + FAILURE_BUCKET_ID 崩溃指纹**（判「是不是同一个 bug」最硬的判据；需 `winget install Microsoft.WinDbg`，没装则优雅退化并给出安装命令，**不会**伪装成「没崩溃」）。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "latest": {
+     "type": "boolean",
+     "description": "只看最新一份 dump（默认看最近 8 份）"
+    },
+    "pid": {
+     "type": "integer",
+     "description": "只看某个 pid 的 dump（填 bl_status 给的 pid）"
+    },
+    "limit": {
+     "type": "integer",
+     "description": "最多几份，默认 8"
+    },
+    "stack": {
+     "type": "boolean",
+     "description": "额外做启发式栈扫描（扫栈上落在已知模块内的指针，回答「调用链里有没有某个 DLL」；不是精确帧）"
+    },
+    "deep": {
+     "type": "boolean",
+     "description": "用 cdb 拿符号化托管栈 + 崩溃指纹（每份约 5~30s；首次拉 MS 符号较慢）。找不到 cdb 时会明确说明原因"
+    },
+    "cdb": {
+     "type": "string",
+     "description": "指定 cdb.exe 路径（默认自动探测，含 WinDbg Appx）"
+    },
+    "path": {
+     "type": "string",
+     "description": "直接指定某个 .dmp 路径"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_json_health",
+  "description": "**IPC 响应完整性体检（宿主侧，只读，不碰游戏）**：全量解析 `<日志目录>\\commands\\done\\*.json`，找出**畸形 JSON** 并给出原始上下文与字节偏移。为什么需要它：响应侧的 JSON 写坏了 ⇒ MCP 客户端**一直等到超时**，而响应其实早就写好了 ⇒ 症状看起来像「游戏主线程卡死」，根因却在 `Jw.Esc` **只转义、不加引号**（交接日志 §3.3 同一条；`src/PatchProbe.cs:325-331` 有源码侧同坑注释）。为什么单读一个文件发现不了：实测 12991 个响应里只有 5 个坏的（0.0385%），按文件名看不出异常、单文件读一次基本撞不上 ⇒ 只有**全量解析**才看得见。判据 `stillLive`：最新 20 个文件里还有畸形 ⇒ 缺陷**仍活着**（不是历史遗留），此时请对照 `bl_build_check` 看进程内 DLL 与磁盘源码是否一致。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "dir": {
+     "type": "string",
+     "description": "要扫描的目录（默认 BlBridge 的 commands\\done）"
+    },
+    "logDir": {
+     "type": "string",
+     "description": "日志目录（与 bl_status 的 logDir 同口径，用于推导 done 目录）"
+    },
+    "limit": {
+     "type": "integer",
+     "description": "最多返回几条坏文件明细，默认 20"
+    }
+   }
+  }
+ },
+ {
+  "name": "bl_ipc_replay",
+  "description": "**IPC 响应缓存检索（宿主侧，只读，不碰游戏）**：从 `<日志目录>\\commands\\done\\` 的 **12991 份历史响应**里按条件捞回**完整响应体**。为什么通用手段不行：**响应体里不含 method 名**（只有 process/result/error/id）⇒ 想按工具名检索，**必须**先读动作账本 `commands/actions.jsonl` 拿 `id -> method` 映射再来取（实测 2490 条账本 id **全部**能连上响应）。本轮为了定位「`CryptographicException` 的 44 次在第几个响应里」，手工 grep 了 12991 个文件 —— 本工具把它变成一次调用。两种模式：`method=` 走账本（⚠️ 只覆盖有账本的那部分，实测 2490/12991 ≈ 19%，工具会如实报 `ledgerCoverage`）；`grep=` 在响应原文里搜（覆盖**全部**，但慢）。典型用法：查某次失败调用的**完整错误消息**（账本只记 code，响应有全文）、复盘上次会话某工具返回了什么。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "method": {
+     "type": "string",
+     "description": "按账本里的方法名过滤（如 get_patches / start_battle / get_exceptions）。只在有账本记录的响应里找；查不到时会提示改用 grep"
+    },
+    "grep": {
+     "type": "string",
+     "description": "在响应原文里做子串匹配（覆盖全部响应，不依赖账本）"
+    },
+    "okOnly": {
+     "type": "boolean",
+     "description": "true=只看成功 / false=只看失败（按信封 ok；不传=都看）"
+    },
+    "limit": {
+     "type": "integer",
+     "description": "最多返回几份响应明细，默认 5"
+    },
+    "full": {
+     "type": "boolean",
+     "description": "是否带完整响应体（默认只带前 400 字符）"
+    },
+    "newestFirst": {
+     "type": "boolean",
+     "description": "按文件时间倒序，默认 true"
+    },
+    "logDir": {
+     "type": "string",
+     "description": "日志目录（与 bl_status 的 logDir 同口径）"
+    }
+   }
+  }
+ },
+ {
+  "name": "bl_exception_detail",
+  "description": "**异常采集口径说明 + 记录读取（宿主侧，只读，不碰游戏）**：解释 `<日志目录>\\exceptions.jsonl` 的**记录口径**并读明细。为什么必需——该文件的口径**多处反直觉，直接读会得出错误结论**：① **行数 != 出现次数**（去重键 =(类型|栈首帧)，且**只在首次出现时落盘**）⇒ 实测 `CryptographicException` 只有 4 行而真实 44 次；② `seq` 是**排空那刻的全局快照**、不是序号（**多条可共享同一 seq**）；③ `stackHead` **只有 1 帧**，且常是 BCL **抛助记帧**（如 `ThrowCryptographicException`，**与调用者无关**）⇒ 这类异常**来源不可判定**（源码注释称'排空时取完整栈'，但**该代码不存在**）；④ `t=session` 分段 = **游戏进程重启** ⇒ 跨段累加 `seen` 是错的；⑤ 盲区：**只记托管异常**，JIT 期失败与原生崩溃抓不到（那两类用 `bl_crash`）。频次请用 `bl_exceptions` 的 `top[].count`；历史响应见 `bl_ipc_replay`。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "type": {
+     "type": "string",
+     "description": "只看这个异常类型（子串匹配，如 Cryptographic / HarmonyException）"
+    },
+    "limit": {
+     "type": "integer",
+     "description": "最多列几条明细，默认 20"
+    },
+    "explain": {
+     "type": "boolean",
+     "description": "是否附口径说明（默认 true —— 本工具的主价值）"
+    },
+    "logDir": {
+     "type": "string",
+     "description": "日志目录（与 bl_status 的 logDir 同口径）"
+    }
+   }
+  }
+ },
+ {
+  "name": "bl_concurrency_guide",
+  "description": "**并发纪律（宿主侧，只读，不碰游戏）**：告诉你**哪些工具能并发、最多几路**。为什么需要：**所有走游戏通道的工具共用同一条串行泵**（`commands/pending/` → 游戏主线程 `Array.Sort` 后逐个 `HandleOne`）。三路实测结论：① 并发提交**可行**（`pending/` 深度实测 max=8）；② 执行**严格串行**（`seq` 单调、**游戏执行序 == 文件名序**）；③ 但代价**不会立刻线性外溢**——游戏端一次轮询把整批捞走，单次成本远小于 250ms 周期时开销藏进周期里；★ 外溢判据：**N × 单次耗时 >= 250ms** 才开始外溢。本工具**两次派发都从现场取数**（工具→方法来自解析 `bl_mcp.py` 的闭包；耗时来自实测账本的分位数），所以**不会随工具改名/负载变化而腐化**。★ 用 **p90 而非中位数**判重（实测 `skip_video` 双峰：p50=1ms 但 p90=459ms，只看中位数会误判成轻工具）。分档：HEAVY(p90>=100ms，**不要并发**) / MEDIUM(>=20ms，上限见 budget) / LIGHT(<20ms，可自由并发) / HOST(不走通道，**零争用**) / UNKNOWN(走通道但无实测 ⇒ 保守按 MEDIUM)。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "tool": {
+     "type": "string",
+     "description": "只看某个工具（如 bl_start_battle）"
+    },
+    "logDir": {
+     "type": "string",
+     "description": "日志目录（与 bl_status 的 logDir 同口径）"
+    }
+   }
+  }
+ },
+ {
+  "name": "bl_build_check",
+  "description": "核对「源码 → 构建产物 → 部署文件 → 进程内 DLL」四段是否一致。用于回答三件事：① 改了代码没重新构建（stale_source）；② 构建了但没部署（stale_deploy）；③ 部署了但游戏没重启、进程里还是旧 DLL（game_not_restarted）。只读，不改任何文件。跑批量测试前建议先跑它。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {},
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_config",
+  "description": "显示 MCP 侧的有效配置与来历（环境变量 / blbridge.json / 默认值分别给了什么），并列出配置文件里的非法项（逐项忽略、附原因）。只读。注意：游戏端另有 blbridge_game.json（采样间隔等），那个改完需要重启游戏。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {},
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_dump",
+  "description": "按需让**游戏进程自己**写一份 minidump（B2 / v0.8.48）。与 WER 的 dump 的关键差别：**显式带 MiniDumpWithFullMemoryInfo(0x800)** ⇒ 有 MemoryInfoList（页保护 r/w/x）—— 那是区分「模块外那段内存」是 JIT 代码还是 Harmony detour 的**唯一**依据。实测：WER 的 6 份 dump **全都没有**这一位；BlBridge 落的都有。★ 不崩也能调（实测健康进程写出的 dump 同样带页保护），所以它能覆盖 bl_crash 结构上覆盖不到的「卡住/僵死但进程还活着」。成本实测：只多 0.02 MB / 0 ms（MemoryInfoList 流仅 ~17 KB）；fullMemory=true 才加 FullMemory（**49 MB / 25 倍**，默认 false）。先跑 bl_status 确认游戏在跑；落盘目录见返回的 path。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "fullMemory": {
+     "type": "boolean",
+     "default": false,
+     "description": "是否附带 FullMemory（49 MB / 25 倍，默认 false）"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_crash_test",
+  "description": "**受控崩溃**：让游戏进程显式崩一次（纯 SEH 0xC0000005），用于验收 B2 的崩溃落盘路径。**游戏会真的崩掉**。★ 双重安全闸门（缺一不可）：① 必须显式调本工具；② 必须设环境变量 BLBRIDGE_ALLOW_CRASH_TEST=1（**默认关**）⇒ 发布版不可能误崩。为什么用 RaiseException 而不是抛托管异常：实测四条崩溃路径里它**最难覆盖**（托管钩子不触发、只有 Win32 顶层过滤器触发）；验它通过，更容易的路径自然没问题。调用后：先返回 aboutToCrash=true 的响应，**随后**进程崩溃 ⇒ 用那个响应可区分「主动崩」与「随机崩」。⚠️ 已知覆盖不到 Environment.FailFast(0xC0000409)，那类继续走 WER。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {},
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_run_batch",
+  "description": "按计划文件批量跑 N 场 AI 对 AI 战斗（阶段 2④「一条命令跑 N 场」）。支持换边双跑：plan 里两个 config 的 attacker/defender 对调即可。dryRun=true 时只返回将执行的命令、不碰游戏。需要游戏在跑且停在自定义战斗界面。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "plan": {
+     "type": "string",
+     "description": "跑批计划 JSON 路径"
+    },
+    "out": {
+     "type": "string",
+     "description": "runs.json 输出路径（供 bl_batch_report 用）"
+    },
+    "dryRun": {
+     "type": "boolean",
+     "description": "只打印计划，不执行"
+    },
+    "battlesDir": {
+     "type": "string",
+     "description": "战斗日志目录（默认 Documents 下）"
+    }
+   },
+   "required": [
+    "plan"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_batch_report",
+  "description": "A/B 对比报告（阶段 2④）。主指标 = **满编窗口**（第一例击杀之前的双方实际扣血占比，此时双方严格等编）；全程口径会被幸存者偏差污染，仅作对照。强制输出 均值 ± 标准差 + 95%CI，且样本少于 3 局时**拒绝下结论**。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "manifest": {
+     "type": "string",
+     "description": "bl_run_batch 产出的 runs.json"
+    },
+    "a": {
+     "type": "string",
+     "description": "A 组：文件 / 目录 / 逗号分隔"
+    },
+    "b": {
+     "type": "string",
+     "description": "B 组：同上"
+    },
+    "labelA": {
+     "type": "string",
+     "description": "A 组标签"
+    },
+    "labelB": {
+     "type": "string",
+     "description": "B 组标签"
+    },
+    "out": {
+     "type": "string",
+     "description": "报告输出路径（markdown）"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_lookup_troop",
+  "description": "查兵种：校验 id 是否存在、按 id 模糊搜索、按文化筛选。数据来自 BannerlordSage 的索引库（只读，只索引官方 XML）。没装 BannerlordSage 时返回 available=false —— 属软依赖，不影响其他工具。注意：search 的 pattern 走 SQL LIKE（% 是通配符，如 imperial_%），传裸词（如 legionary）会返回空结果 —— 那不是「没这个兵种」；culture 区分大小写，需与库中一致（empire 或 Culture.empire）。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "check": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "要校验的兵种 id 列表，如 [\"imperial_legionary\"]"
+    },
+    "search": {
+     "type": "string",
+     "description": "按 id 模糊搜索，% 为通配符，如 imperial_%"
+    },
+    "culture": {
+     "type": "string",
+     "description": "配合 search 按文化过滤，empire 或 Culture.empire 均可；区分大小写（EMPIRE 会得到空结果）"
+    },
+    "limit": {
+     "type": "integer",
+     "description": "search 返回条数，默认 20"
+    },
+    "status": {
+     "type": "boolean",
+     "description": "只做索引可用性自检"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_blockade",
+  "description": "关隘封锁候选生成（离线、只读，对应 tools/bl_blockade.py）。给 MapBlockade（城池关隘 mod）算「哪座城该封哪几块地图面片」，输出候选 + 有效性证据 + 冲突，**由你裁决**后再落盘 map_blockades.xml。⚠️ 分工是刻意的：几何/图论由本工具算（确定性、可复现），「该不该设关隘」由你按 isBorder/effect/type/冲突来判 —— 10408 个面片的坐标不该进上下文，你也判不动。三层判据要一起看：mode=pass 表示**真的封得住**（BFS 实测封锁后邻城不可达），mode=zoc 只是城门口控制区面片（作者人工数据里大多是这种，墙长中位数才 4.7，根本封死不了通道）；isBorder=邻接别国，是「该不该设」最强的单一信号（人工已标记城 88% 是边境城）。⏱ 首次调用要 30~40s（解析拓扑 + 建邻接 + 全城扫描），结果按参数缓存，后续同参数调用毫秒级；换参数或 refresh=true 才重算。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "action": {
+     "type": "string",
+     "enum": [
+      "status",
+      "candidates",
+      "emit"
+     ],
+     "description": "status=只查输入可用性；candidates=出候选；emit=按裁决落盘。默认 candidates"
+    },
+    "city": {
+     "type": "string",
+     "description": "只看这一座城（id 或名字子串）"
+    },
+    "types": {
+     "type": "string",
+     "description": "参与的节点类型，默认 castle,town（村庄不设关隘，是 MapBlockade 自己的规则）"
+    },
+    "mode": {
+     "type": "string",
+     "enum": [
+      "pass",
+      "zoc"
+     ],
+     "description": "只返回这一类的城（pass=真封得住 / zoc=只有控制区面片）"
+    },
+    "limit": {
+     "type": "integer",
+     "description": "最多返回几座，默认 40（按 pass 优先、关宽升序）"
+    },
+    "full": {
+     "type": "boolean",
+     "description": "带上每块候选面片的明细（fi/地形/面积/通路数）。默认 false —— 全量明细会撑爆上下文"
+    },
+    "adopt": {
+     "type": "object",
+     "description": "action=emit 时的裁决结果：{settlement_id: {keep:bool, faces?:[fi]}}。faces 省略=采纳全部候选；keep=false=该城不设关隘。不给 adopt 则写全部候选。"
+    },
+    "out": {
+     "type": "string",
+     "description": "action=emit 的输出路径（map_blockades.xml）"
+    },
+    "refresh": {
+     "type": "boolean",
+     "description": "忽略缓存重算"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_launch_game",
+  "description": "无人值守启动 Bannerlord（走 BLSE）并**进到自定义战斗界面**，分两步：① 起游戏、自动应答两个模态弹窗（Safe Mode -> 否；Mod change detected -> 确定），成功判据是**游戏窗口出现**；② 轮询到**主菜单真的就绪**（1s 一轮；实测 ~10s）→ 期间跳过场动画 → 默认只截图即返回（await_confirm），你确认后再调 bl_open_ui → 之后 **1 秒**一轮等 activeState 变成 CustomBattleState（这一步官方状态本身要 ~30s 才落地）。⚠️ 必须分两步：窗口出现时游戏还在加载/启动动画里，那时 open_ui 只会拿到 `wrong_state`。返回里的 `enterCustomBattle.timeline` 是逐步时间线。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "timeoutSec": {
+     "type": "integer",
+     "description": "等待游戏窗口的上限秒数，默认 150"
+    },
+    "enterCustomBattle": {
+     "type": "boolean",
+     "description": "第二步：等主菜单 + ESC 跳过场 + 进自定义战斗（默认 true）。false = 只启动，自己再调 bl_open_ui"
+    },
+    "autoOpen": {
+     "type": "boolean",
+     "description": "第二步里是否**自动**执行 open_ui（默认 false）。⚠️ 启动期 fire open_ui 会崩游戏（2026-09-25 真机：cleanExit=false + rgl_log 崩溃栈），所以默认只截图并返回 await_confirm，由调用方看完再调 bl_open_ui。true 时会先套 minStartupSec 安全下限（默认 20s）再 fire"
+    },
+    "uiId": {
+     "type": "string",
+     "description": "第二步要进的入口 id，默认 CustomBattle"
+    },
+    "menuTimeoutSec": {
+     "type": "integer",
+     "description": "等主菜单就绪的上限秒数，默认 120"
+    },
+    "entryTimeoutSec": {
+     "type": "integer",
+     "description": "open_ui 后等 CustomBattleState 的上限秒数，默认 60"
+    },
+    "minStartupSec": {
+     "type": "number",
+     "description": "autoOpen=true 的安全下限秒数（默认 20）。默认路径（不自动 fire）**不受它约束**：主菜单就绪即返回（实测 ~10s；2026-09-27 前固定等 45s，白等 35s）"
+    },
+    "skipModuleList": {
+     "type": "boolean",
+     "description": "调试用：不带 _MODULES_ 列表启动（结果是 no-mods 模式）"
+    },
+    "excludeModules": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "启动时**排除**的模块名，用于 A/B 对照（同一次启动只差一个模块）。名字必须与列表里完全一致，拼错会直接启动失败（不会静默忽略）。例：[\"RTSCamera\",\"RTSCamera.CommandSystem\"] = 关掉 RTSCamera，好让兜底相机（spectate）露出来"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_desktop_windows",
+  "description": "列出当前可见的顶层窗口：标题 / 进程号 / **物理像素**坐标与尺寸（本机 3840x2160@150%，已 DPI 校正）。用于判断游戏是否在跑、窗口是否在前台、拿 windowId 给其它工具用。后端 = gridhand（外部 CLI，软依赖；未安装时返回 available=false 与安装提示）。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "filter": {
+     "type": "string",
+     "description": "按标题子串过滤（大小写不敏感），如 bannerlord"
+    },
+    "limit": {
+     "type": "integer",
+     "description": "最多返回条数，默认 40"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_desktop_screenshot",
+  "description": "截屏（全屏或某个窗口），可叠加 16x9 的**带标签网格**（每格中心有十字准星），也可放大到某一格看子网格。返回 PNG 路径 —— 用 view_image 读它即可看到画面。为什么用网格：agent 从截图目测像素坐标误差极大（本机 150% 缩放时曾整体偏 1.5 倍，把两次点击砸到主菜单的「退出游戏」上）。先截图读格名，再用 bl_desktop_click 点该格。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "windowId": {
+     "type": "integer",
+     "description": "窗口 id（bl_desktop_windows 拿）；不传则截全屏"
+    },
+    "grid": {
+     "type": "boolean",
+     "description": "叠加带标签网格，默认 true"
+    },
+    "cell": {
+     "type": "string",
+     "description": "放大到某格看子网格，如 C5；支持递归 B2.C1"
+    },
+    "out": {
+     "type": "string",
+     "description": "输出 PNG 路径；默认写到日志目录的 ui\\ 子目录"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_desktop_click",
+  "description": "按**格子名**点击（如 C5；跨格用 I5+I6；递归用 B2.C1），或按物理像素坐标点击。一条命令完成「移动+点击」。可选先聚焦目标窗口（focus=true，默认 true）。已知边界：合成输入能驱动官方界面（实测点主菜单 C5 一次即中），但**到不了我们自写Gauntlet 层的按钮**（同一坐标手搓注入与 gridhand 都不响应）——所以对自写面板，正解是文件 IPC（open_ui），不要指望模拟鼠标。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "cell": {
+     "type": "string",
+     "description": "格子名，如 C5；跨格用 I5+I6；递归放大用 B2.C1"
+    },
+    "windowId": {
+     "type": "integer",
+     "description": "目标窗口 id（格子名需要它来换算；聚焦也用它）"
+    },
+    "button": {
+     "type": "string",
+     "description": "left / right，默认 left"
+    },
+    "focus": {
+     "type": "boolean",
+     "description": "点击前先把该窗口提到前台，默认 true"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "bl_desktop_key",
+  "description": "按键或输入文本：keys 走组合键（enter / ctrl+a / alt+f4），text 走文本输入。Bannerlord 与 BLSE 的对话框用得上（例如 Mod change detected 的按钮是中文「确定」，WM_COMMAND IDOK 无效、回车有效）。",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "keys": {
+     "type": "string",
+     "description": "组合键，如 enter / ctrl+a / alt+f4"
+    },
+    "text": {
+     "type": "string",
+     "description": "要输入的文本"
+    },
+    "windowId": {
+     "type": "integer",
+     "description": "目标窗口 id（可选）"
+    }
+   },
+   "additionalProperties": false
+  }
+ }
+]

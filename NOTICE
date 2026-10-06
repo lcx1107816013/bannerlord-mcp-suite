@@ -1,0 +1,99 @@
+# NOTICE
+
+**bannerlord-mcp-suite** — 一个把多个《骑马与砍杀 II：霸主》相关 MCP 服务器
+**聚合成单一入口**的桥 + 一套只读审计工具。
+
+Copyright (c) 2026 bannerlord-mcp-suite contributors — MIT（见 `LICENSE`）。
+
+---
+
+## 0. ★ 先说清楚这个仓库**没有**包含什么（最重要的一条）
+
+本仓库**只包含我们自己写的代码**：
+
+| 本仓库内的目录 | 作者 | 许可 |
+|---|---|---|
+| `bl_chain.py` + `tests/` + `probe/` | ★ **我们** | MIT（本仓库） |
+| `localization-audit/`（第 4 个 MCP） | ★ **我们** | MIT（本仓库） |
+
+**它挂载的三个业务 MCP 不在本仓库里** —— 它们是**外部依赖**，由使用者自己的部署提供：
+
+| 外部依赖 | 上游 | 许可 |
+|---|---|---|
+| `blbridge` | 本项目组的另一个仓库（DLL 通道） | MIT |
+| `bannerlordsage` | 上游 [`hby7921/BannerlordSage`](https://github.com/hby7921/BannerlordSage) **的变种** | MIT |
+| `bannerlordhelper` | 上游 [`Gengark/Bannerlord-Helper`](https://github.com/Gengark/Bannerlord-Helper) **的变种** | MIT |
+
+⇒ **本仓库不复制、不内嵌、不重新分发上述任何上游代码。**
+⇒ 它只通过 **MCP over stdio** 与它们通信（**独立进程、协议边界**）。
+
+★ 之所以要这样切：如果把它们并进来，就会**永久丢掉与上游同步的能力**
+（详见 `docs/why-umbrella-repo.md`）。**这不是洁癖，是可维护性。**
+
+---
+
+## 1. 本仓库代码的第三方来源
+
+### 1.1 无
+
+`bl_chain.py`、`localization-audit/`、`tests/`、`probe/`、`tools/`
+**均为本项目原创**，不含从其他项目抄录的代码。
+
+### 1.2 关于协议的"参考"（不构成代码抄袭）
+
+本桥的 stdio 传输是**自己实现**的（`subprocess.Popen` + 行式 JSON-RPC）。
+**刻意不使用官方 `mcp` SDK** —— 原因如实记录在
+`bl_chain.py` 顶部注释与 `docs/` 里：本机沙箱下
+`anyio.open_process` / `asyncio.create_subprocess_*` 会
+`PermissionError [WinError 5]`（Windows 上 asyncio 子进程用**命名管道**，被沙箱禁止），
+而朴素 `subprocess.Popen` 正常。
+
+⇒ 协议**依据官方公开规范**（JSON-RPC 2.0 + MCP 2024-11-05 的
+`initialize` / `tools/list` / `tools/call`）实现。
+**规范是公开标准，不是可抄的代码**；且我们用第三方 SDK 的 zod schema
+**反向验证**过自己的实现（见 `tests/verify_schema.mjs`）。
+
+---
+
+## 2. 运行时依赖（**不随本仓库分发**）
+
+| 依赖 | 用途 | 许可 |
+|---|---|---|
+| Python 3.8+ | 全部本仓库代码 | PSF License |
+| [Bun](https://bun.sh/)（可选） | 仅当挂载 `bannerlordsage` / `bannerlordhelper` 时需要 | MIT |
+| 《骑马与砍杀 II：霸主》 | 三个业务 MCP 要操作的对象 | **TaleWorlds 商业许可**（使用者需自备正版） |
+
+★ 本仓库**不包含任何游戏资源、资产或 TaleWorlds 的代码**。
+
+---
+
+## 3. 商标声明
+
+"Mount & Blade"、"Bannerlord" 及相关名称、标志是 **TaleWorlds Entertainment** 的商标。
+本仓库是**非官方的社区工具**，**与 TaleWorlds 无任何隶属或背书关系**。
+
+同样地，`BannerlordSage` / `Bannerlord.Helper` / BUTR 系列等名称属于各自作者。
+本仓库**不声称**与它们有隶属关系 —— 只是**能调用**它们。
+
+---
+
+## 4. 隐私与凭据
+
+★ **本仓库不含任何 API key、token 或凭据。**
+所有凭据**只从环境变量读**（如 `NEXUS_API_KEY`），代码里**没有**任何硬编码的密钥。
+
+若你在部署时设置了凭据，它们**在你自己的环境里**，不会被本仓库上传或转发
+（唯一的例外：`bl_chain.py` 会把宿主环境**原样继承**给上游子进程，
+这是让上游能读到自己的凭据所必需的 —— 详见代码注释）。
+
+---
+
+## 5. 安全边界（如实）
+
+- 本桥**只是转发**：它不解释、不修改上游工具的参数与返回。
+- `bannerlordhelper` 的部分工具会**写磁盘**（改游戏 `Modules/` 下的汉化文件）；
+  `blbridge` 的部分工具会**操控游戏**。**这些能力来自上游，不是本桥新增的。**
+- 本桥自己（含 `localization-audit`）**全部只读** ——
+  `localization-audit` 的只读性有**实测断言**（`tests/` 里比对调用前后文件快照）。
+- ★ **不保证**：上游工具本身的安全性、正确性，以及它们对游戏存档的影响。
+  使用前请自行评估，**尤其是会写盘的那些工具**。
