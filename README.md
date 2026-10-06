@@ -7,47 +7,146 @@
 
 ---
 
+## ★ 它调用哪些 MCP？（**先看这个**）
+
+本仓库**本身不是游戏工具** —— 它是一座**桥**：把下面这些 MCP 聚合成一个工具面。
+**所以你必须一并 clone 它们**（本仓库不内嵌，理由见 [`docs/why-umbrella-repo.md`](docs/why-umbrella-repo.md)）。
+
+| # | MCP 仓库（**要 clone 这些**） | 它给什么 | 工具数 | 语言 |
+|---|---|---|---:|---|
+| 1 | ★ [`lcx1107816013/Bannerlord-blbridge`](https://github.com/lcx1107816013/Bannerlord-blbridge) | **操控游戏**：开战 / 改令 / 接管士兵 / 遥测 / 存档 / 崩溃取证 | **57** | C# DLL + Python |
+| 2 | [`lcx1107816013/BannerlordSage-variant`](https://github.com/lcx1107816013/BannerlordSage-variant) | **查资料**：源码 / XML / C# 类型 / API 文档 / 项目记忆 | **24** | TypeScript + bun |
+| 3 | [`lcx1107816013/Bannerlord-Helper-variant`](https://github.com/lcx1107816013/Bannerlord-Helper-variant) | **汉化**：i18n / 生成模板 / 翻译 / Nexus 检索 | **10** | TypeScript + bun |
+| 4 | **本仓库自带** | **审计**：`localization-audit`（**只读**，汉化缺键 + DLL 硬编码串） | **2** | Python |
+
+⇒ 合计 **93 个工具**；`meta` 模式下常驻只 **5 个元工具 / 522 token**（省 97.7%）。
+
+```bash
+# 一条命令把四个都拉下来（本仓库 + 它要挂的三个）
+git clone https://github.com/lcx1107816013/bannerlord-mcp-suite.git
+cd bannerlord-mcp-suite
+git clone https://github.com/lcx1107816013/Bannerlord-blbridge.git       ../Bannerlord-blbridge
+git clone https://github.com/lcx1107816013/BannerlordSage-variant.git    ../BannerlordSage-variant
+git clone https://github.com/lcx1107816013/Bannerlord-Helper-variant.git ../Bannerlord-Helper-variant
+```
+
+★ **不确定自己缺哪个？** 跑 `pwsh -File bootstrap.ps1 -Check` ——
+它会**逐个点名**缺什么，并**直接打印要执行的 `git clone` 命令**。
+★ 三个业务 MCP 里只有 **BlBridge 需要先 `build.ps1 -Deploy`**（它是 C#）；
+两个 TS 的上游只要装了 `bun` 就能跑。
+
+> 📌 上面第 1–3 个都是**我们自己维护**的仓库（第 2、3 个是**上游变种**，
+> 各自 `LICENSE` 保留了上游版权，详见 [`NOTICE`](NOTICE)）。
+
+---
+
 ## 这个仓库解决什么问题
 
 同时挂多个 MCP 服务器时有两个真实痛点，都是**实测**出来的（不是推测）：
 
 | 痛点 | 实测数字 |
 |---|---|
-| **① 工具面吃掉上下文** | 三个服务器合计 **91 个工具 / 22,387 token** 常驻 —— 占 32K 上下文的 **66.8%** |
+| **① 工具面吃掉上下文** | 三个业务服务器合计 **91 个工具 / 22,387 token** 常驻 —— 占 32K 上下文的 **68.3%** |
 | **② 工具太多找不到** | 91 个工具里，模型经常选错或漏掉该用的那个 |
 
-本仓库的 `bl_chain.py` 用一个**稳定的元工具层**解决两者：
+本仓库的 `bl_chain.py` 用一个**稳定的元工具层**解决两者
+（下表是**四个上游**的实测值，含本仓库自带的审计 MCP）：
 
 | 模式 | 常驻工具 | 常驻 token | 占全量 |
 |---|---:|---:|---:|
-| `full` | 91 | 22,383 | 100% |
-| `slim` | 91 | 12,955 | 57.9% |
+| `full` | 93 | 23,142 | 100% |
+| `slim` | 93 | 13,306 | 57.5% |
 | **`meta`** | **5** | **522** | **2.3%** |
 
-⇒ **`meta` 模式省 97.7% 的常驻 token**，而**能力一个不少**（见下方"无损"）。
+⇒ **`meta` 模式把常驻从 23,142 token 压到 522（省 97.7%）**，而**能力一个不少**（见下方"无损"）。
+⇒ 换算成 32K 上下文：`full` 占 **70.6%**，`meta` 只占 **1.6%**。
 
 ---
 
 ## 快速开始
 
+### 第 1 步：clone 本仓库 + 它要挂的四个 MCP
+
+★ **本仓库只是「聚合桥 + 审计 MCP」**，它要挂的那几个 MCP **不在本仓库里**
+（为什么这样切见 [`docs/why-umbrella-repo.md`](docs/why-umbrella-repo.md)）。
+⇒ **必须一并 clone 下面这些，否则桥上没有可调的工具。**
+
+| 仓库 | 是什么 | 语言 | 必须先装吗 |
+|---|---|---|---|
+| [`bannerlord-mcp-suite`](https://github.com/lcx1107816013/bannerlord-mcp-suite) | ★ **本仓库**（桥 + 审计 MCP） | Python | — |
+| [`Bannerlord-blbridge`](https://github.com/lcx1107816013/Bannerlord-blbridge) | 操控游戏：开战 / 改令 / 遥测 / 崩溃取证（**57 个工具**） | C# DLL + Python | 需要 `build.ps1 -Deploy` |
+| [`BannerlordSage-variant`](https://github.com/lcx1107816013/BannerlordSage-variant) | 查资料：源码 / XML / API 文档（**24 个工具**） | TypeScript + bun | 需要 bun |
+| [`Bannerlord-Helper-variant`](https://github.com/lcx1107816013/Bannerlord-Helper-variant) | 汉化 / i18n / Nexus 检索（**10 个工具**） | TypeScript + bun | 需要 bun |
+| （本仓库自带） | 汉化审计（**2 个工具**，**只读**） | Python | 不需要 |
+
 ```bash
-git clone <这个仓库的地址>
+# 本仓库
+git clone https://github.com/lcx1107816013/bannerlord-mcp-suite.git
 cd bannerlord-mcp-suite
 
-# ① 看它现在能连上什么（不需要任何配置，缺的会如实列出）
-python bl_chain.py --selftest
-
-# ② 跑全部验证（18 项）
-python tests/run_all_tests.py
-
-# ③ 实测各模式的成本
-python bl_chain.py --measure
-
-# ④ 当成 MCP 服务器用（stdio）
-python bl_chain.py
+# 三个业务 MCP（放到你自己惯用的目录即可）
+git clone https://github.com/lcx1107816013/Bannerlord-blbridge.git
+git clone https://github.com/lcx1107816013/BannerlordSage-variant.git
+git clone https://github.com/lcx1107816013/Bannerlord-Helper-variant.git
 ```
 
-`--selftest` **不需要**上游存在也能跑：连不上的上游会被**点名**，其余照常。
+### 第 2 步：让桥知道它们在哪
+
+桥**不硬编码路径** —— 用环境变量告诉它（缺的会**点名**，不会静默）：
+
+```bash
+export DSH_CHAIN_BLBRIDGE=<你 clone BlBridge 的路径>
+export DSH_CHAIN_SAGE=<你 clone BannerlordSage-variant 的路径>
+export DSH_CHAIN_HELPER=<你 clone Bannerlord-Helper-variant 的路径>
+export BANNERLORD_DIR="<游戏根目录>"     # 例如 .../Mount & Blade II Bannerlord
+export DSH_CHAIN_BUN=<bun 可执行文件>    # 只有挂两个 TS 上游时才需要
+```
+
+★ 全部可配置项见下方「环境变量」表。
+
+### 第 3 步：验证
+
+```bash
+# ① 环境探测（只读，PowerShell 脚本；★ 会明确告诉你**缺哪一个仓库**、该设哪个变量）
+pwsh -File bootstrap.ps1 -Check
+
+# ② 桥自检（连不上的上游会被点名，其余照常）
+python bl_chain.py --selftest
+
+# ③ 跑全部验证（18 项）
+python tests/run_all_tests.py
+
+# ④ 实测各模式的成本
+python bl_chain.py --measure
+```
+
+### 第 4 步：接到你的 MCP 客户端
+
+```jsonc
+// 以 Claude Desktop / Cursor 之类为例（mcpServers 段）
+{
+  "mcpServers": {
+    "chain": {
+      "command": "python",
+      "args": ["<你 clone 的路径>/bannerlord-mcp-suite/bl_chain.py"],
+      "env": {
+        "DSH_CHAIN_MODE": "meta",                      // 省 token 的关键
+        "DSH_CHAIN_BLBRIDGE": "<BlBridge 路径>",
+        "DSH_CHAIN_SAGE": "<Sage 路径>",
+        "DSH_CHAIN_HELPER": "<Helper 路径>",
+        "BANNERLORD_DIR": "<游戏根目录>",
+        "DSH_CHAIN_BUN": "<bun 路径>"
+      }
+    }
+  }
+}
+```
+
+★ **只挂 `chain` 一个就够了** —— 它内部会去起那三个
+（**不要**把它们与 `chain` **同时**挂进同一个客户端：那会让同一能力出现两个入口，
+且每个上游跑两份进程）。
+
+`--selftest` **不需要**上游存在也能跑。
 
 ---
 
@@ -180,12 +279,40 @@ MIT（见 [`LICENSE`](LICENSE)）。
 
 An **MCP aggregator** for Mount & Blade II: Bannerlord tooling.
 
-**Problem** (measured): three MCP servers = **91 tools / 22,387 tokens** resident
-(**66.8%** of a 32K context).
+### ★ Which MCPs does this bridge call?
+
+This repo is **a bridge, not a game tool** — so you must clone the MCPs it aggregates
+(they are **not** vendored here; see [`docs/why-umbrella-repo.md`](docs/why-umbrella-repo.md)):
+
+| # | MCP repository (**clone these**) | What it gives | Tools |
+|---|---|---|---:|
+| 1 | [`lcx1107816013/Bannerlord-blbridge`](https://github.com/lcx1107816013/Bannerlord-blbridge) | **Drive the game**: battles / orders / telemetry / saves / crash forensics | **57** |
+| 2 | [`lcx1107816013/BannerlordSage-variant`](https://github.com/lcx1107816013/BannerlordSage-variant) | **Look things up**: source / XML / C# types / API docs | **24** |
+| 3 | [`lcx1107816013/Bannerlord-Helper-variant`](https://github.com/lcx1107816013/Bannerlord-Helper-variant) | **Localization**: i18n / templates / translation / Nexus search | **10** |
+| 4 | **bundled in this repo** | **Audit**: `localization-audit` (**read-only**) | **2** |
+
+⇒ **93 tools** total; `meta` mode keeps only **5 meta-tools / 522 tokens** resident (−97.7%).
+
+```bash
+git clone https://github.com/lcx1107816013/bannerlord-mcp-suite.git
+cd bannerlord-mcp-suite
+git clone https://github.com/lcx1107816013/Bannerlord-blbridge.git       ../Bannerlord-blbridge
+git clone https://github.com/lcx1107816013/BannerlordSage-variant.git    ../BannerlordSage-variant
+git clone https://github.com/lcx1107816013/Bannerlord-Helper-variant.git ../Bannerlord-Helper-variant
+```
+
+Not sure what you're missing? Run `pwsh -File bootstrap.ps1 -Check` — it **names each
+missing MCP** and prints the exact `git clone` command to fix it.
+
+### The problem it solves
+
+**Problem** (measured): the three business MCP servers = **91 tools / 22,387 tokens** resident
+(**68.3%** of a 32K context). With the bundled audit MCP it's **93 tools / 23,148 tokens**
+(**70.6%** of 32K).
 
 **Solution**: a stable meta-tool layer. `meta` mode keeps only **5 tools / 522 tokens**
-(**2.3%**) while **losing no capability** — hidden tools remain callable by name
-(verified: `tools/list` hides them, `tools/call` still works).
+(**2.3%** of the full surface, **1.6%** of 32K) while **losing no capability** — hidden
+tools remain callable by name (verified: `tools/list` hides them, `tools/call` still works).
 
 **Losslessness is proven by two independent criteria**: `full` is byte-identical to
 upstream; `slim` keeps the behavioral contract identical field-by-field

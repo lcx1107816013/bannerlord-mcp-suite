@@ -16,13 +16,17 @@ Copyright (c) 2026 bannerlord-mcp-suite contributors — MIT（见 `LICENSE`）�
 | `bl_chain.py` + `tests/` + `probe/` | ★ **我们** | MIT（本仓库） |
 | `localization-audit/`（第 4 个 MCP） | ★ **我们** | MIT（本仓库） |
 
-**它挂载的三个业务 MCP 不在本仓库里** —— 它们是**外部依赖**，由使用者自己的部署提供：
+**它挂载的三个业务 MCP 不在本仓库里** —— 它们是**外部依赖**，由使用者自己 clone：
 
-| 外部依赖 | 上游 | 许可 |
-|---|---|---|
-| `blbridge` | 本项目组的另一个仓库（DLL 通道） | MIT |
-| `bannerlordsage` | 上游 [`hby7921/BannerlordSage`](https://github.com/hby7921/BannerlordSage) **的变种** | MIT |
-| `bannerlordhelper` | 上游 [`Gengark/Bannerlord-Helper`](https://github.com/Gengark/Bannerlord-Helper) **的变种** | MIT |
+| 外部依赖 | ★ **本项目的仓库（装这个）** | 它的上游（仅供溯源） | 许可 |
+|---|---|---|---|
+| `blbridge` | [`lcx1107816013/Bannerlord-blbridge`](https://github.com/lcx1107816013/Bannerlord-blbridge) | （本项目自研，无上游） | MIT |
+| `bannerlordsage` | [`lcx1107816013/BannerlordSage-variant`](https://github.com/lcx1107816013/BannerlordSage-variant) | [`hby7921/BannerlordSage`](https://github.com/hby7921/BannerlordSage) | MIT |
+| `bannerlordhelper` | [`lcx1107816013/Bannerlord-Helper-variant`](https://github.com/lcx1107816013/Bannerlord-Helper-variant) | [`Gengark/Bannerlord-Helper`](https://github.com/Gengark/Bannerlord-Helper) | MIT |
+
+★ **要装的是中间那列**（本项目维护、与链路实测匹配的那三个）。
+右边那列只是为了**说明溯源**：两个变种仓库各自 `LICENSE` 里保留了上游版权与许可原文，
+且各自保留了 `upstream` remote 以便跟进上游更新。
 
 ⇒ **本仓库不复制、不内嵌、不重新分发上述任何上游代码。**
 ⇒ 它只通过 **MCP over stdio** 与它们通信（**独立进程、协议边界**）。

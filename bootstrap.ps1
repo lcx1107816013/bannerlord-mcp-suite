@@ -94,28 +94,61 @@ Say ""
 Say "4) 三个业务 MCP（★ 本伞仓不包含它们，见 docs/why-umbrella-repo.md）"
 
 $checks = @(
-    @{ name='blbridge';         env='DSH_CHAIN_BLBRIDGE'; cands=@($env:DSH_CHAIN_BLBRIDGE, 'C:\Users\LCGX\CodeBuddy\20260923171333\BlBridge'); probe='tools\bl_mcp.py' },
-    @{ name='bannerlordsage';   env='DSH_CHAIN_SAGE';     cands=@($env:DSH_CHAIN_SAGE,     'F:\Program Files\BannerlordSage');                                        probe='src\entrypoints\bannerlord-full-stdio.ts' },
-    @{ name='bannerlordhelper'; env='DSH_CHAIN_HELPER';   cands=@($env:DSH_CHAIN_HELPER,   'F:\Program Files\Bannerlord.Helper');                                     probe='mcp\server.ts' }
+    @{ name='blbridge';         env='DSH_CHAIN_BLBRIDGE'; repo='https://github.com/lcx1107816013/Bannerlord-blbridge.git';
+       cands=@($env:DSH_CHAIN_BLBRIDGE, 'C:\Users\LCGX\CodeBuddy\20260923171333\BlBridge'); probe='tools\bl_mcp.py' },
+    @{ name='bannerlordsage';   env='DSH_CHAIN_SAGE';     repo='https://github.com/lcx1107816013/BannerlordSage-variant.git';
+       cands=@($env:DSH_CHAIN_SAGE,     'F:\Program Files\BannerlordSage');               probe='src\entrypoints\bannerlord-full-stdio.ts' },
+    @{ name='bannerlordhelper'; env='DSH_CHAIN_HELPER';   repo='https://github.com/lcx1107816013/Bannerlord-Helper-variant.git';
+       cands=@($env:DSH_CHAIN_HELPER,   'F:\Program Files\Bannerlord.Helper');            probe='mcp\server.ts' }
 )
 $resolved = @{}
+$missing = @()
 foreach ($c in $checks) {
     $hit = $null
     foreach ($p in $c.cands) {
-        if ($p -and (Test-Path (Join-Path $p $c.probe))) { $hit = $p; break }
+        # ★ 健壮性：`Join-Path`/`Test-Path` 遇到**不存在的驱动器**（如 X:\）会报
+        #   "找不到驱动器" —— 而"用户还没 clone"正是**最常见的正常情形**，
+        #   不该让它刷一屏红字。
+        #   ⚠️ 这类是**非终止错误**，`try/catch` 抓不到 ⇒ 必须显式
+        #      `-ErrorAction SilentlyContinue` + 清 `$Error`。
+        if (-not $p) { continue }
+        $probe = $null
+        try {
+            $probe = Join-Path $p $c.probe -ErrorAction SilentlyContinue
+        } catch {
+            $probe = $null
+        }
+        if (-not $probe) { continue }
+        $ok = Test-Path -LiteralPath $probe -ErrorAction SilentlyContinue
+        if ($ok) { $hit = $p; break }
     }
     if ($hit) {
         $resolved[$c.env] = $hit
         Ok "$($c.name)  ->  $hit"
     } else {
-        Bad "$($c.name)  —— 没找到（设 $($c.env) 可指定；本伞仓不含它）"
+        $missing += $c
+        Bad "$($c.name)  —— 没找到"
+        Write-Host "         ★ 从这拿：$($c.repo)" -ForegroundColor Yellow
+        Write-Host "           然后设 `$env:$($c.env) = '<你 clone 的路径>'" -ForegroundColor Yellow
     }
 }
+$Error.Clear()   # 清掉上面探测产生的非终止错误，别让它们影响后续输出
 
 # 第 4 个 MCP：这个**就在本仓库里**，永远可用
 $la = Join-Path $Root 'localization-audit\la_mcp.py'
 if (Test-Path $la) { Ok "localization-audit  ->  本仓库内（自带，无需外部部署）" }
 else { Bad "localization-audit 缺失（本仓库应自带它 —— 请检查 clone 完整性）" }
+
+# 若有缺失 ⇒ 汇总一句可照抄的修复指引
+if ($missing.Count -gt 0) {
+    Say ""
+    Say "  ── 缺失的上游怎么补（复制粘贴即可）──"
+    foreach ($c in $missing) {
+        Write-Host "     git clone $($c.repo)" -ForegroundColor Cyan
+    }
+    Write-Host "     # 然后把上面提示的 DSH_CHAIN_* 变量指到你的 clone 路径" -ForegroundColor Cyan
+    Write-Host "     # 详见 README「快速开始 → 第 1/2 步」" -ForegroundColor Cyan
+}
 
 # ── 5. 可选的 tokenizer ───────────────────────────────────────────────────
 Say ""
