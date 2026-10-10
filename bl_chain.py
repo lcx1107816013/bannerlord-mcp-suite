@@ -59,14 +59,29 @@ never changes"。本桥的 `meta` 模式正是这个形态：常驻工具集**�
 
 | 上游变化 | 本桥行为 | 验证 |
 |---|---|---|
-| **加**工具 | 自动进入 `full`/`slim` 清单与检索索引；未登记组 → 落 `other` 且**仍可见** | `adapt_test` T1 |
+| **加**工具 | 自动进入 `full`/`slim` 清单与检索索引；未登记组 → 落 `other` | `adapt_test` T1 |
 | **删**工具 | 自动从清单消失；不再出现在检索结果里 | T2 |
 | **改** schema | `chain_get_tool_details` 每次都转发上游**最新**那份，不缓存旧版 | T3 |
 | **升级/重装** | `chain_refresh` 返回**新增/消失**名单 | T4 |
 | **加**服务器 | 在 `SERVERS` 加一条即可 | T5 |
 | 某上游**坏掉** | 只影响它自己，其他照常；响应里点名是哪个 | T5 |
 
-⇒ 升级三个原 MCP **不需要改本文件**。
+⇒ 升级三个原 MCP 不需要改本文件（**schema 与路由**层面）。
+
+### ⚠️ 但"加工具不必改本文件"只对**默认模式**成立（2026-10-10 修订）
+
+原文写的是"未登记组 → 落 `other` 且**仍可见**" —— 这句**漏了前提**。
+`other` 里的工具只在**不筛选**时可见；一旦有人设了 `DSH_CHAIN_GROUPS`，
+"未登记"就等于"**从该视图消失**"。2026-10-10 实测（blbridge 一次新增 14 个工具）：
+
+| 视图 | 工具面 | 那 14 个 |
+|---|---|---|
+| `full`（不筛选）| 115 | 可见 |
+| `full` + `GROUPS=ro` | 60 | **全部消失** |
+
+⇒ 所以 `TOOL_GROUPS` **是要跟着上游同步的**，它不是纯粹的"视图糖"。
+自测 **I 段**（"自称只读的工具必须已登记"）就是为此立的**漂移守卫**：
+上游加了自述"只读"的工具却忘了登记，它会**报红点名**。
 
 ## 为什么不用官方 MCP SDK
 
@@ -232,9 +247,18 @@ SERVERS = {
 # 成员按工具名枚举，但**没列到的名字一律落进 GROUP_FALLBACK 且仍然可见** ——
 # 所以上游加工具时不会因为"忘了加到组里"而静默消失（这是与上游那份硬编码
 # TOOL_GROUPS 最关键的差别：那份漏一个名字，工具就凭空不见了）。
+#
+# ⚠️ 但"仍然可见"只对**不筛选**的模式成立（`full`/`slim`）。一旦有人设了
+#    `DSH_CHAIN_GROUPS`，未登记的工具就**进不了任何被选中的组** ⇒ 在该视图里
+#    消失。2026-10-10 实测确认（blbridge v0.8.57 新增 14 个工具全部未登记）：
+#        full + DSH_CHAIN_GROUPS=ro                        → 60 个，我的 14 个**全丢**
+#        full + DSH_CHAIN_GROUPS=ro,battle,write,launch,desktop → 91 个，仍**全丢**
+#    ⇒ 所以"上游加工具不必改本表"这个说法**只在默认模式下成立**。
+#    本表因此**需要随上游更新**，并由自测 I 段（对账上游真表）守住漂移。
 TOOL_GROUPS = {
     "ro": {
-        "desc": "只读观测：状态 / 崩溃 / 异常 / 补丁 / 日志 / 索引 / 战役与世界读",
+        "desc": ("只读观测：状态 / 崩溃 / 异常 / 补丁 / 日志 / 索引 / 战役与世界读 / "
+                 "观察者事件 / 存档与交战现状 / 遭遇选项读"),
         "names": [
             "bl_status", "bl_battle_status", "bl_crash", "bl_exceptions",
             "bl_patch_failures", "bl_list_battles", "bl_analyze", "bl_read_events",
@@ -258,6 +282,24 @@ TOOL_GROUPS = {
             # ⚠️ 必须在这里列名，否则会落进 GROUP_FALLBACK（仍可见，但组视图里
             #    "按只读筛选"时会漏掉它 —— 那正是人们找审计工具的方式）。
             "la_audit_coverage", "la_dll_strings",
+            # ── v0.8.57 补登（2026-10-10）────────────────────────────────
+            # blbridge 本轮新增/此前遗漏的**只读**工具。归类依据 = 各自描述里
+            # 声明的语义（"只读"/"只扫描不改"/"读…"），逐条核过：
+            "bl_observer_status",   # 观察者状态/计数/丢弃数（只读）
+            "bl_observer_events",   # 读最近战役事件（事件驱动，非快照）
+            "bl_war_status",        # 列当前交战王国对（造刺激前先看现状）
+            "bl_save_status",       # 是否正在存盘 + 存档清单（只读）
+            "bl_conversation",      # 读当前遭遇/对话的可选项（★ 只列选项，不替调用方选）
+            "bl_get_hero",          # 读英雄运行时血量（只读）
+            "bl_get_perk",          # 读 Perk 运行时生效值（只读）
+            "bl_scan_bad_data",     # 坏数据**只扫描、不改任何数据**
+            "bl_crashguard",        # 读崩溃守卫账本（诊断族，与 bl_crash 同类）
+            "bl_source_map",        # 栈帧 → 源码位置（取证）
+            "bl_save_diag",         # 存档诊断（宿主侧，只读）
+            "bl_report",            # 崩溃报告导出（宿主侧，只读）
+            "bl_lexicon",           # 崩溃词典查询（人话解释）
+            "bl_dump",              # 让游戏进程写 minidump（**取证动作，不改游戏状态**；
+                                    #   与已在本组的 bl_crash 同族）
         ],
     },
     "battle": {
@@ -268,7 +310,8 @@ TOOL_GROUPS = {
         ],
     },
     "write": {
-        "desc": "写：改配置 / 改相机 / 载入存档 / 汉化产物 / 建工程 / 生成补丁",
+        "desc": ("写：改配置 / 改相机 / 载入存档 / 汉化产物 / 建工程 / 生成补丁 / "
+                 "战役刺激（宣战·议和·时间流速·存档·回主菜单）/ 对话选择 / 受控崩溃"),
         "names": [
             "bl_apply_config", "bl_apply_rts_config", "bl_ghost_camera",
             "bl_camera_speed", "bl_cheat_mode", "bl_load_save",
@@ -276,6 +319,19 @@ TOOL_GROUPS = {
             "bh_create_external_translation", "bh_run_cli",
             "create_mod_workspace", "generate_xslt_patch", "generate_harmony_patch",
             "index_mod_source", "project_memory_write",
+            # ── v0.8.57 补登（2026-10-10）：**会改状态**的战役工具 ──────────
+            # ⚠️ 判据：这些都会真实改变游戏/存档状态，**不能**混进 ro
+            #    （否则"只读筛选"会给出一个会改存档的工具面，方向性错误）。
+            "bl_declare_war",        # ★ 真实改变外交关系（会改存档）
+            "bl_make_peace",         # 真实议和（会改存档）
+            "bl_campaign_time_speed",# 改时间流速（等价于点倍速键）
+            "bl_save_game",          # 持久化（写盘）
+            "bl_return_to_menu",     # 卸载战役（跨帧待办）
+            "bl_conversation_choose",# ★ 选项后果**不可逆**（掉钱/开战/损兵）
+            "bl_conversation_continue",  # 推进对话（改变对话状态机）
+            "bl_observer_config",    # 改观察者运行时开关（与 bl_apply_config 同类）
+            "bl_observer_clear",     # 清空观察者缓冲（改运行时状态）
+            "bl_crash_test",         # ★ **受控崩溃：游戏会真的崩掉**（破坏性最强）
         ],
     },
     "launch": {
@@ -288,6 +344,26 @@ TOOL_GROUPS = {
     },
 }
 GROUP_FALLBACK = "other"   # 未登记的工具落这里，**仍然可见**（绝不静默隐藏）
+
+# ★ 兜底组必须**可选**（2026-10-10 修的真缺陷）。
+#
+# ## 缺陷形态
+# `stats()` 会把 GROUP_FALLBACK 连同 TOOL_GROUPS 一起**报给用户**
+# （`out["groups"] = {... for g in list(TOOL_GROUPS) + [GROUP_FALLBACK]}`）⇒
+# 用户在 `chain_status` 里**看得见 `other` 这个组名**。但 `DSH_CHAIN_GROUPS`
+# 的校验只认 `TOOL_GROUPS` 的键 ⇒ 用户照着报出来的名字填 `other`，得到：
+#     ValueError: DSH_CHAIN_GROUPS 含未知组名: other（可用: battle, desktop, launch, ro, write）
+# ⇒ **"报出来的组名"与"能选中的组名"不一致** —— 报了却不给用。
+# 而 `other` 恰恰是"未登记工具的落点"，最可能有人想单独看它（"有没有工具漏登记"）。
+#
+# ## 修法
+# 把兜底组升格成 TOOL_GROUPS 里的**真组**（空 names，由 group_of 兜底填充）。
+# 这样校验自然放行，且 `names` 为空不会与兜底逻辑冲突（group_of 优先查
+# TOOL_GROUPS，`other` 里没有名字 ⇒ 未登记工具仍按 GROUP_FALLBACK 归到它）。
+TOOL_GROUPS[GROUP_FALLBACK] = {
+    "desc": "未登记的工具（落点兜底）：名字没被上面任何一组列到的工具都在这里",
+    "names": [],
+}
 
 # ── 检索用的「用户词汇 → 英文词干」同义词表 ─────────────────────────────────
 #
@@ -765,7 +841,10 @@ class Chain:
                 "name": "chain_refresh",
                 "description": (
                     "重新向上游拉取工具表，返回**新增/消失**的工具名。"
-                    "上游 MCP 升级或重装后调它，无需重启本桥。"),
+                    "上游 MCP **新增/删除工具**后调它，无需重启本桥。"
+                    "⚠️ 它**只重拉上游工具表**，不重新加载本桥自己的代码 —— "
+                    "改了 `bl_chain.py` 自身（如 `TOOL_GROUPS` 分组表）**必须重启本桥**才生效，"
+                    "调本工具**不会**让新分组生效（本工具自身读到的是进程启动时载入的那份模块）。"),
                 "inputSchema": {"type": "object", "properties": {},
                                 "additionalProperties": False},
             },
@@ -876,8 +955,12 @@ class Chain:
                "modeCost": modes}
         if with_groups:
             allnames = [t["name"] for _, t in self.all_tools()]
+            # 去重：GROUP_FALLBACK 现在**已登记进 TOOL_GROUPS**（见其上方注释），
+            # 所以 `list(TOOL_GROUPS) + [GROUP_FALLBACK]` 会产生重复键。
+            # 保留 `+ [GROUP_FALLBACK]` 是为了**万一有人把它从 TOOL_GROUPS 摘掉**时
+            # 这里仍然会报出该组（兜底组的可见性不该依赖登记状态）。
             out["groups"] = {g: sorted(n for n in allnames if self.group_of(n) == g)
-                             for g in list(TOOL_GROUPS) + [GROUP_FALLBACK]}
+                             for g in dict.fromkeys(list(TOOL_GROUPS) + [GROUP_FALLBACK])}
         return out
 
     # ── 调用 ───────────────────────────────────────────────────────────
@@ -1133,6 +1216,72 @@ def selftest():
         else:
             print("   [ok] %d 个未登记工具落 `other` 且全部可见%s"
                   % (len(other), ("：" + ", ".join(other)) if other else "（无未登记工具）"))
+
+        print("\nI. 分组过滤**不会让工具消失**（2026-10-10 补的漂移守卫）")
+        #
+        # ## 为什么立这条（真机踩到）
+        # `DSH_CHAIN_GROUPS=ro` 时未登记的工具会**从视图里消失**（H 段只证明了
+        # 「不筛选时仍可见」，没证明「筛选时也可见」）。2026-10-10 实测：
+        # blbridge 新增 14 个工具全部未登记 ⇒ `ro` 视图里**一个都看不到**。
+        #
+        # ## ⚠️ 第一版判据是错的（记下来，别再犯）
+        # 我最初写的是"描述**前 80 字符**含『只读』的工具必须已登记"。
+        # **反向对照当场证伪**：故意把 `bl_observer_status` 从 ro 摘掉，
+        # 测试**依然是绿的** —— 因为它的描述是"观察者状态：是否启用 / 已记录条数…"，
+        # **前 80 字符根本不含『只读』**。⇒ 那条判据只覆盖"自述里恰好带该词"的工具，
+        # 覆盖率纯属偶然（本项目反复记过的"判据绑定形态"）。
+        #
+        # ⇒ 改成**不依赖描述文字**的两条：
+        #    ① **并集完整性**：所有组名并起来必须等于工具全集 —— 有工具落在任何组
+        #       之外，它在**任何** `DSH_CHAIN_GROUPS` 视图下都不可见。
+        #    ② **显式名单断言**：下列核心只读工具**必须**在 `ro` 里。名单是断言而非
+        #       推导 —— 它们就是"想用 ro 找只读"时最该命中的那批。
+        allnames = {t["name"] for _, t in chain.all_tools()}
+        union = set()
+        for _g in TOOL_GROUPS:
+            union |= set(TOOL_GROUPS[_g]["names"])
+        ungrouped = sorted(allnames - union)
+        if ungrouped:
+            fails.append("I1 有工具不属于任何组（任何组筛选下都不可见）: %s" % ungrouped)
+            print("   [!!] %d 个工具不在任何组: %s" % (len(ungrouped), ungrouped))
+        else:
+            print("   [ok] %d 个工具**全部**至少属于一个组（任何组筛选都不会凭空消失）"
+                  % len(allnames))
+
+        must_be_ro = [
+            "bl_observer_status", "bl_observer_events",       # 战役观察者（读事件流）
+            "bl_war_status", "bl_save_status",                # 交战现状 / 存档现状
+            "bl_conversation",                                # 读遭遇选项（只列不选）
+            "bl_crashguard", "bl_lexicon", "bl_source_map",   # 崩溃取证三件套
+            "bl_save_diag", "bl_report",                      # 存档诊断 / 报告导出
+            "bl_get_hero", "bl_get_perk", "bl_scan_bad_data",  # 运行时只读
+        ]
+        ro_names = set(TOOL_GROUPS["ro"]["names"])
+        not_ro = [n for n in must_be_ro if n in allnames and n not in ro_names]
+        if not_ro:
+            fails.append("I2 这些工具应归 `ro` 却不在: %s" % not_ro)
+            print("   [!!] 应归 ro 却不在: %s" % not_ro)
+        else:
+            print("   [ok] %d 个核心只读工具全部归 `ro`（ro 筛选能命中）" % len(must_be_ro))
+
+
+        print("\nJ. 兜底组 `other` 必须**可选**（2026-10-10 修）")
+        #
+        # `stats()` 会把 `other` 报给用户（它列在 groups 里），但原来的校验只认
+        # TOOL_GROUPS 的键 ⇒ 用户照着报出来的名字填 `DSH_CHAIN_GROUPS=other`
+        # 会得到 `ValueError: 未知组名` —— **报了却不给用**。
+        if GROUP_FALLBACK in TOOL_GROUPS:
+            try:
+                Chain(servers=["blbridge"], groups=[GROUP_FALLBACK])
+                print("   [ok] `%s` 可被 DSH_CHAIN_GROUPS 选中（与 stats 报出的组名一致）"
+                      % GROUP_FALLBACK)
+            except ValueError as exc:
+                fails.append("J1 兜底组 %r 报了却不可选: %s" % (GROUP_FALLBACK, exc))
+                print("   [!!] 不可选: %s" % exc)
+        else:
+            fails.append("J2 兜底组 %r 未登记进 TOOL_GROUPS（stats 会报它但选不中）"
+                         % GROUP_FALLBACK)
+            print("   [!!] 未登记")
 
         print("\n" + "=" * 74)
         if fails:

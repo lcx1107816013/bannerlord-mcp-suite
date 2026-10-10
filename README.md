@@ -198,7 +198,7 @@ bannerlord-mcp-suite/
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `DSH_CHAIN_MODE` | `full` | `full` / `slim` / `meta` / `slim+meta` |
-| `DSH_CHAIN_GROUPS` | 空（=全部） | 逗号或加号分隔的组名（`ro`/`battle`/`write`/`launch`/`desktop`） |
+| `DSH_CHAIN_GROUPS` | 空（=全部） | 逗号或加号分隔的组名（`ro`/`battle`/`write`/`launch`/`desktop`/`other`） |
 | `DSH_CHAIN_SERVERS` | 空（=全部） | 只要这些上游（**避免与直连重复**） |
 | `DSH_CHAIN_PYTHON` | `sys.executable` | 用哪个解释器起上游 |
 | `DSH_CHAIN_BUN` | 本机路径 | Bun 可执行文件（挂 TS 上游时需要） |
